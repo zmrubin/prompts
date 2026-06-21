@@ -1,0 +1,4 @@
+# Never commit secrets or rendered config / runtime data.
+.env
+data/
+models/

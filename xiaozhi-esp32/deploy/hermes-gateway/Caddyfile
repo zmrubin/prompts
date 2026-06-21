@@ -1,0 +1,11 @@
+# Auto-TLS reverse proxy. Caddy fetches a Let's Encrypt cert for
+# GATEWAY_PUBLIC_HOST (port 80 must be reachable for the ACME challenge).
+{$GATEWAY_PUBLIC_HOST} {
+	# WebSocket realtime channel -> server :8000. reverse_proxy upgrades
+	# the connection automatically.
+	@ws path /xiaozhi/v1/*
+	reverse_proxy @ws xiaozhi-server:8000
+
+	# Everything else (OTA check-version, MCP vision/explain) -> server :8003.
+	reverse_proxy xiaozhi-server:8003
+}

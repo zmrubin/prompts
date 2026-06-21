@@ -65,25 +65,23 @@ config OTA_URL
 
 ## Standing up the Hermes gateway
 
-1. Deploy `xinnan-tech/xiaozhi-esp32-server` (Docker is the quickest path). It exposes the
-   xiaozhi OTA endpoint (default port `8002`) and the realtime WebSocket endpoint.
-2. In the gateway's LLM provider config, set an **OpenAI-compatible** provider whose
-   `base_url` points at your Hermes instance, e.g.:
+A turnkey, self-hosted deployment lives in [`deploy/hermes-gateway/`](../deploy/hermes-gateway/README.md):
+Docker Compose running `xinnan-tech/xiaozhi-esp32-server` behind Caddy (automatic TLS),
+with local VAD/ASR and the chat **LLM** + camera **VLLM** providers pointed at your
+external Hermes endpoint. In short:
 
-   ```yaml
-   LLM:
-     HermesLLM:
-       type: openai
-       base_url: https://your-hermes-host:8000/v1
-       model_name: hermes-3-llama-3.1-8b   # whatever your Hermes serves
-       api_key: <token-or-EMPTY>
-   ```
+```bash
+cd deploy/hermes-gateway
+cp .env.example .env && $EDITOR .env   # GATEWAY_PUBLIC_HOST + HERMES_BASE_URL/MODEL/KEY
+./render-config.sh && docker compose up -d
+```
 
-3. For **vision**, enable a vision-capable model on the same OpenAI-compatible endpoint
-   (Hermes/served VLM) so camera frames uploaded by the device's MCP `take_photo` tool are
-   routed to it. The Watcher's camera is driven by the Himax co-processor via
-   `main/boards/sensecap-watcher/sscma_camera.cc`.
-4. Point the firmware's `OTA_URL` at `https://<gateway-host>:8002/xiaozhi/ota/` and flash.
+The Hermes binding is an OpenAI-compatible provider (`type: openai`, `url`, `model_name`,
+`api_key`) — the device never speaks to Hermes directly; the gateway forwards to it. The
+device's `OTA_URL` then points at `https://<GATEWAY_PUBLIC_HOST>/xiaozhi/ota/`, and the
+gateway hands back the `wss://.../xiaozhi/v1/` realtime address so all traffic stays on
+your VPS. Camera frames (Himax co-processor, `main/boards/sensecap-watcher/sscma_camera.cc`)
+are routed through the gateway's vision endpoint to the Hermes VLLM provider.
 
 ## Build & flash (Watcher)
 
@@ -96,12 +94,14 @@ idf.py -DBOARD_NAME=sensecap-watcher build flash
 > ⚠️ Back up the factory NVS (`0x9000`) before flashing if the unit still carries Seeed's
 > stock firmware — it holds the device EUI/credentials. See the board's `README_en.md`.
 
-## Open items
+## Decisions & open items
 
-- Confirm the **real Hermes gateway URL** and substitute it for the `example.com` placeholder.
-- Confirm whether Hermes should be reached **via the gateway** (recommended, above) or
-  whether a direct device→Hermes path is required (larger change: the device would need to
-  speak the OpenAI HTTP API and move ASR/TTS off-board).
-- Confirm the exact Hermes model id(s) for chat and for vision.
+- **Architecture: device → self-hosted gateway → Hermes** (confirmed). Everything stays
+  on infrastructure you own; the device contacts only your VPS.
+- To finish a live deployment, fill `deploy/hermes-gateway/.env` with the real
+  `GATEWAY_PUBLIC_HOST`, `HERMES_BASE_URL`, model ids and key, and set the firmware's
+  `CONFIG_OTA_URL` to the matching `https://<host>/xiaozhi/ota/`.
+- ⚠️ The default TTS (`EdgeTTS`) reaches Microsoft — the only third-party callout. Swap to
+  a local engine for full isolation (see the deploy README).
 </content>
 </invoke>

@@ -1,0 +1,61 @@
+# ─── xiaozhi-esp32-server override config (Hermes gateway) ─────────────────
+# This file is a TEMPLATE. render-config.sh runs envsubst over it to produce
+# data/.config.yaml (the file the server actually reads). ${VARS} come from .env
+#
+# The server deep-merges this over its built-in config.yaml, so we only specify
+# what differs: the advertised addresses, which modules are active, the local
+# ASR, and the Hermes LLM/VLLM providers.
+
+server:
+  ip: 0.0.0.0
+  port: 8000          # websocket (proxied by Caddy as wss://.../xiaozhi/v1/)
+  http_port: 8003     # OTA + vision (proxied by Caddy on https://...)
+  # Addresses ADVERTISED to the device. Must be the public TLS host so the
+  # Watcher only ever talks to this VPS.
+  websocket: wss://${GATEWAY_PUBLIC_HOST}/xiaozhi/v1/
+  vision_explain: https://${GATEWAY_PUBLIC_HOST}/mcp/vision/explain
+
+# Active providers. Everything here runs on this VPS except the LLM/VLLM calls,
+# which go to your Hermes endpoint.
+selected_module:
+  VAD: SileroVAD          # local voice-activity detection
+  ASR: SenseVoiceLocal    # local speech-to-text (no third party)
+  LLM: HermesLLM          # chat -> your Hermes instance
+  VLLM: HermesVLLM        # camera vision -> your Hermes (vision) instance
+  TTS: EdgeTTS            # text-to-speech  (⚠ see README: calls Microsoft)
+  Intent: function_call   # lets Hermes drive MCP tools (camera, device control)
+  Memory: nomem
+
+# Local ASR — SenseVoiceSmall, runs in-container (model.pt mounted via compose).
+ASR:
+  SenseVoiceLocal:
+    type: fun_local
+    model_dir: models/SenseVoiceSmall
+    output_dir: tmp/
+
+# Chat LLM -> Hermes (OpenAI-compatible).
+LLM:
+  HermesLLM:
+    type: openai
+    model_name: ${HERMES_CHAT_MODEL}
+    url: ${HERMES_BASE_URL}
+    api_key: ${HERMES_API_KEY}
+
+# Vision LLM -> Hermes. Used for camera frames uploaded via the device's MCP
+# vision flow. Verify the vision provider key against your server version
+# (selected_module.VLLM selects this entry).
+VLLM:
+  HermesVLLM:
+    type: openai
+    model_name: ${HERMES_VISION_MODEL}
+    url: ${HERMES_BASE_URL}
+    api_key: ${HERMES_API_KEY}
+
+# TTS — EdgeTTS works out of the box but reaches Microsoft's online service.
+# For full data isolation (everything on your VPS), swap to a local engine —
+# see README "Keeping TTS on-VPS".
+TTS:
+  EdgeTTS:
+    type: edge
+    voice: en-US-AriaNeural
+    output_dir: tmp/

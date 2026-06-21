@@ -1,0 +1,40 @@
+# Hermes gateway for the SenseCAP Watcher.
+#   Device --wss/https--> Caddy (TLS) --> xiaozhi-server --OpenAI /v1--> Hermes
+# Only 80/443 are exposed publicly; the server ports stay on the internal network.
+
+services:
+  xiaozhi-server:
+    image: ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:server_latest
+    container_name: hermes-gateway
+    restart: unless-stopped
+    expose:
+      - "8000"   # websocket
+      - "8003"   # OTA + vision (http)
+    volumes:
+      - ./data:/opt/xiaozhi-esp32-server/data
+      # Local ASR model — download once (see README), then it's mounted here.
+      - ./models/SenseVoiceSmall/model.pt:/opt/xiaozhi-esp32-server/models/SenseVoiceSmall/model.pt
+    # To debug without TLS, temporarily publish the ports instead of `expose`:
+    # ports:
+    #   - "8000:8000"
+    #   - "8003:8003"
+
+  caddy:
+    image: caddy:2
+    container_name: hermes-gateway-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      GATEWAY_PUBLIC_HOST: ${GATEWAY_PUBLIC_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - xiaozhi-server
+
+volumes:
+  caddy_data:
+  caddy_config:
