@@ -72,7 +72,12 @@ Three services from this repo:
 | `ENCRYPTION_KEY` | from `npm run hash-password` |
 | `DRY_RUN` | `true` until you're ready |
 
-**3. Scheduler** — same repo, root directory `app`, start command `npm run scheduler`, and a **cron schedule of `*/5 * * * *`** (5 minutes is Railway's minimum; schedules are UTC). It claims due posts, publishes them, and exits — Railway requires a cron service to exit cleanly, which is why it uses a one-shot connection rather than the pooled one.
+**3. Scheduler** — same repo, root directory `app`. In its settings:
+
+- **Config-as-code path:** `railway.scheduler.json` — this is what stops the scheduler from inheriting the web service's start command and re-running migrations on every tick.
+- **Cron schedule:** `*/5 * * * *` (5 minutes is Railway's minimum; schedules are UTC).
+
+It claims due posts, publishes them, and exits — Railway requires a cron service to exit cleanly, which is why it uses a one-shot connection rather than the pooled one, and why its restart policy is `NEVER` (a clean exit is success, not a crash to retry).
 
 Give it the same environment variables as the web service.
 
