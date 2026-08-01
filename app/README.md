@@ -58,6 +58,8 @@ For a real end-to-end test with actual API calls, the safest three are a Discord
 
 ## Deploying to Railway
 
+**Full step-by-step guide with troubleshooting: [DEPLOY.md](./DEPLOY.md).** Short version below.
+
 Three services from this repo:
 
 **1. Postgres** — add the Railway Postgres plugin. It provides `DATABASE_URL`.
