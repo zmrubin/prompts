@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #0d0f12;
+  --color-panel: #14171c;
+  --color-edge: #232830;
+  --color-muted: #8b94a3;
+  --color-accent: #6ea8fe;
+  --color-good: #4ade80;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ink);
+  color: #e6e9ef;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Long generated copy must wrap rather than stretch the layout. */
+.prose-copy {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
