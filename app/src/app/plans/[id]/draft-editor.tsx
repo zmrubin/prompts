@@ -19,6 +19,8 @@ export function DraftEditor({ draft, channel }: { draft: PostDraft; channel: Cha
 
   const limit = channel.charLimit
   const over = limit ? [...body].length > limit : false
+  const titleLimit = channel.titleCharLimit
+  const titleOver = titleLimit ? [...title].length > titleLimit : false
   const note = AUTOMATION_NOTE[channel.automation]
 
   async function save() {
@@ -58,15 +60,25 @@ export function DraftEditor({ draft, channel }: { draft: PostDraft; channel: Cha
         channel.id === 'hackernews' ||
         channel.id === 'devto' ||
         draft.title) && (
-        <input
-          value={title}
-          onChange={(e) => {
-            setTitle(e.target.value)
-            setSaved(false)
-          }}
-          placeholder="Title"
-          className="mb-2 w-full rounded-md border border-edge bg-ink px-3 py-2 text-sm font-medium outline-none focus:border-accent"
-        />
+        <div className="mb-2">
+          <input
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value)
+              setSaved(false)
+            }}
+            placeholder="Title"
+            className={`w-full rounded-md border bg-ink px-3 py-2 text-sm font-medium outline-none focus:border-accent ${
+              titleOver ? 'border-bad' : 'border-edge'
+            }`}
+          />
+          {titleLimit && (
+            <span className={`mt-1 block text-xs ${titleOver ? 'text-bad' : 'text-muted'}`}>
+              title {[...title].length} / {titleLimit}
+              {titleOver && ' — too long'}
+            </span>
+          )}
+        </div>
       )}
 
       <textarea
@@ -82,7 +94,7 @@ export function DraftEditor({ draft, channel }: { draft: PostDraft; channel: Cha
       <div className="mt-2 flex flex-wrap items-center gap-3">
         {limit && (
           <span className={`text-xs ${over ? 'text-bad' : 'text-muted'}`}>
-            {[...body].length} / {limit}
+            body {[...body].length} / {limit}
             {over && ' — too long, this will be rejected'}
           </span>
         )}

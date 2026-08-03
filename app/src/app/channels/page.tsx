@@ -64,7 +64,8 @@ export default async function ChannelsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{c.name}</span>
                     <Badge tone={auto.tone}>{auto.label}</Badge>
-                    {c.charLimit && <Badge>{c.charLimit} chars</Badge>}
+                    {c.charLimit && <Badge>body {c.charLimit}</Badge>}
+                    {c.titleCharLimit && <Badge>title {c.titleCharLimit}</Badge>}
                     {c.requiresImage && <Badge tone="warn">image required</Badge>}
                     {c.requiresTags.length > 0 && (
                       <Badge>only for: {c.requiresTags.join(', ')}</Badge>

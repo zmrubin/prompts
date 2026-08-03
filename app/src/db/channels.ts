@@ -117,6 +117,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.producthunt.com/posts/new?url={url}',
     homepageUrl: 'https://www.producthunt.com',
     charLimit: 260,
+    titleCharLimit: 60,
     supportsImages: true,
     requiresImage: true,
     linkPolicy: 'fine',
@@ -134,7 +135,8 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     automation: 'manual',
     submitUrlTemplate: 'https://news.ycombinator.com/submitlink?u={url}&t={title}',
     homepageUrl: 'https://news.ycombinator.com',
-    charLimit: 80,
+    charLimit: null,
+    titleCharLimit: 80,
     supportsImages: false,
     linkPolicy: 'fine',
     audience: 'Senior engineers, deeply allergic to marketing.',
@@ -298,6 +300,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/SideProject/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/SideProject/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'fine',
     audience: 'About 628k members. The most permissive place to share a project.',
     postingRules:
@@ -315,6 +318,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/SaaS/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/SaaS/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'penalized',
     audience: 'About 200k members, SaaS founders.',
     postingRules:
@@ -332,6 +336,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/indiehackers/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/indiehackers/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'penalized',
     audience: 'About 100k members, bootstrappers.',
     postingRules:
@@ -349,6 +354,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/vibecoding/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/vibecoding/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'fine',
     audience: 'Fast-growing community of AI-assisted builders.',
     postingRules:
@@ -366,6 +372,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/buildinpublic/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/buildinpublic/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'fine',
     audience: 'About 30k members building in the open.',
     postingRules:
@@ -383,6 +390,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/microsaas/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/microsaas/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'penalized',
     audience: 'About 50k members focused on small, profitable software.',
     postingRules:
@@ -400,6 +408,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     submitUrlTemplate: 'https://www.reddit.com/r/ClaudeAI/submit?title={title}&url={url}',
     homepageUrl: 'https://www.reddit.com/r/ClaudeAI/',
     charLimit: 40000,
+    titleCharLimit: 300,
     linkPolicy: 'penalized',
     audience: 'Over 100k members, technical Claude users.',
     postingRules:
@@ -421,6 +430,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
     connectorKey: 'devto',
     homepageUrl: 'https://dev.to',
     supportsImages: true,
+    titleCharLimit: 250,
     linkPolicy: 'fine',
     audience: 'Working developers reading long-form technical content.',
     postingRules:

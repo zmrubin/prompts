@@ -61,8 +61,9 @@ export const redditConnector: Connector = {
     const sr = subredditOf(payload.channel.id, payload.channel.name)
     const title = payload.title?.trim()
     if (!title) return failed('Reddit requires a title; this draft has none.')
-    if (title.length > 300) {
-      return failed(`Title is ${title.length} characters; Reddit's limit is 300.`)
+    const titleLimit = payload.channel.titleCharLimit ?? 300
+    if (title.length > titleLimit) {
+      return failed(`Title is ${title.length} characters; Reddit's limit is ${titleLimit}.`)
     }
 
     // A self post with the link in the body reliably outperforms a link post

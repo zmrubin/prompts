@@ -143,7 +143,15 @@ export const channels = pgTable('channels', {
   /** For manual venues: submit URL with {url} and {title} placeholders. */
   submitUrlTemplate: text('submit_url_template'),
   homepageUrl: text('homepage_url'),
+  /** Limit on the post body. Null means no meaningful limit. */
   charLimit: integer('char_limit'),
+  /**
+   * Limit on the title/headline, where the venue has one. Kept separate
+   * because several venues cap the title tightly while leaving the body
+   * effectively unbounded — Hacker News allows 80 characters of title and
+   * an essay underneath it.
+   */
+  titleCharLimit: integer('title_char_limit'),
   supportsImages: boolean('supports_images').notNull().default(true),
   requiresImage: boolean('requires_image').notNull().default(false),
   linkPolicy: linkPolicy('link_policy').notNull().default('fine'),
