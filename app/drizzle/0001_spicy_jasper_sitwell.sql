@@ -1,0 +1,1 @@
+ALTER TABLE "channels" ADD COLUMN "title_char_limit" integer;

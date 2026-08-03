@@ -31,7 +31,10 @@ function channelBlock(c: Channel): string {
     `### ${c.id}`,
     `Name: ${c.name}`,
     `Category: ${c.category}`,
-    c.charLimit ? `Character limit: ${c.charLimit} (HARD LIMIT)` : null,
+    c.charLimit ? `Body character limit: ${c.charLimit} (HARD LIMIT)` : null,
+    c.titleCharLimit
+      ? `Title character limit: ${c.titleCharLimit} (HARD LIMIT — the title only; the body is measured separately)`
+      : null,
     `Link policy: ${c.linkPolicy}${
       c.linkPolicy === 'first_comment'
         ? ' — a link in the body suppresses reach, so use linkPlacement "first_comment"'

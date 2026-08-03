@@ -24,6 +24,7 @@ async function main() {
           submitUrlTemplate: c.submitUrlTemplate ?? null,
           homepageUrl: c.homepageUrl ?? null,
           charLimit: c.charLimit ?? null,
+          titleCharLimit: c.titleCharLimit ?? null,
           supportsImages: c.supportsImages ?? true,
           requiresImage: c.requiresImage ?? false,
           linkPolicy: c.linkPolicy ?? 'fine',

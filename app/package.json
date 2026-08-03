@@ -14,7 +14,8 @@
     "scheduler": "tsx --env-file-if-exists=.env src/scheduler/run.ts",
     "hash-password": "tsx --env-file-if-exists=.env src/scripts/hash-password.ts",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx --env-file-if-exists=.env src/scripts/smoke.ts"
+    "smoke": "tsx --env-file-if-exists=.env src/scripts/smoke.ts",
+    "demo": "tsx --env-file-if-exists=.env src/scripts/demo.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.36.4",

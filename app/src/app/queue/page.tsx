@@ -47,8 +47,13 @@ export default async function QueuePage() {
   const draftById = new Map(drafts.map((d) => [d.id, d]))
   const channelById = new Map(chans.map((c) => [c.id, c]))
 
-  const pending = rows.filter((r) => r.status === 'manual_pending')
-  const scheduled = rows.filter((r) => ['scheduled', 'processing'].includes(r.status))
+  // Upcoming reads soonest-first; history reads most-recent-first.
+  const pending = rows
+    .filter((r) => r.status === 'manual_pending')
+    .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
+  const scheduled = rows
+    .filter((r) => ['scheduled', 'processing'].includes(r.status))
+    .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
   const done = rows.filter((r) =>
     ['posted', 'manual_done', 'failed', 'skipped'].includes(r.status),
   )
