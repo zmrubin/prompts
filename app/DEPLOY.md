@@ -171,7 +171,7 @@ With dry run on you'll see `DRY RUN — no real posts will be made.` and each co
 | Build fails immediately | Root Directory isn't set to `app`. |
 | Scheduler boots a web server / re-runs migrations every 5 min | Config-as-code path isn't set to `railway.scheduler.json`. |
 | `Invalid environment: ENCRYPTION_KEY must be 32 bytes` | The key was truncated on paste. Regenerate with Step 0 and copy the whole line. |
-| Login always rejects the password | `ADMIN_PASSWORD_HASH` is partially pasted — it contains `$` characters and must be copied whole. |
+| Login always rejects the password | `ADMIN_PASSWORD_HASH` is malformed. It must look like `scrypt:<salt>:<hash>` — three colon-separated parts. If yours contains `$` it came from an older version and will be silently truncated when loaded from `.env`; regenerate it with `npm run hash-password`. |
 | Every connection shows "needs reauth" after a redeploy | `ENCRYPTION_KEY` changed. Old credentials can't be decrypted; reconnect each account. |
 | Plan generation fails with "No API key stored" | The provider selected in Settings isn't the one you saved a key for. |
 | Posts sit in `scheduled` forever | The scheduler service has no cron schedule set, or is missing `DATABASE_URL`. |
