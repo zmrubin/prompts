@@ -145,10 +145,16 @@ export async function getPlanWithDrafts(planId: string) {
     : []
 
   const order = { must: 0, should: 1, optional: 2 } as const
+  // Postgres returns rows in no guaranteed order, so priority and offset alone
+  // leave ties to reshuffle between loads — which moves cards around under the
+  // cursor while you are editing them. The channel's own sort order, then its
+  // id, makes the list stable.
   drafts.sort(
     (a, b) =>
       order[a.priority] - order[b.priority] ||
-      a.suggestedOffsetHours - b.suggestedOffsetHours,
+      a.suggestedOffsetHours - b.suggestedOffsetHours ||
+      (byId.get(a.channelId)?.sortOrder ?? 0) - (byId.get(b.channelId)?.sortOrder ?? 0) ||
+      a.channelId.localeCompare(b.channelId),
   )
 
   return {
