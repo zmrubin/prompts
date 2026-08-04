@@ -13,9 +13,13 @@
     "typecheck": "tsc --noEmit",
     "import": "tsx src/scripts/import.ts",
     "channels": "tsx src/scripts/channels-brief.ts",
-    "db:setup": "tsx src/db/seed.ts"
+    "db:setup": "tsx src/db/seed.ts",
+    "setup": "tsx src/scripts/setup.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "refresh": "tsx src/scripts/refresh-metrics.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^13.0.2",
     "drizzle-orm": "^0.36.4",
     "next": "^15.1.6",

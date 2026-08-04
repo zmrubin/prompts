@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Channel, Metric, Post } from '@/db/schema'
+import type { Cooldown } from '@/lib/status'
 import { Badge, Button, Card } from '@/components/ui'
 import { CopyButton } from '@/components/copy-block'
 
@@ -15,6 +16,7 @@ export function PostCard({
   clipboard,
   metric,
   canAutoFetch,
+  cooldown,
 }: {
   post: Post
   channel: Channel
@@ -22,6 +24,7 @@ export function PostCard({
   clipboard: string
   metric?: Metric | null
   canAutoFetch: boolean
+  cooldown?: Cooldown | null
 }) {
   const router = useRouter()
   const [title, setTitle] = useState(post.title ?? '')
@@ -100,6 +103,18 @@ export function PostCard({
       </div>
 
       {post.rationale && <p className="mt-2 text-xs italic text-muted">{post.rationale}</p>}
+
+      {cooldown?.cooling && post.status === 'todo' && (
+        <p className="mt-2 rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-xs text-warn">
+          Posted here{' '}
+          {cooldown.daysSinceLastPost === 0
+            ? 'today'
+            : `${cooldown.daysSinceLastPost} ${cooldown.daysSinceLastPost === 1 ? 'day' : 'days'} ago`}
+          {cooldown.lastPostedProject ? ` (${cooldown.lastPostedProject})` : ''}. This venue
+          expects about {cooldown.cooldownDays} days between promotional posts — wait{' '}
+          {cooldown.daysRemaining} more, or you risk being removed.
+        </p>
+      )}
 
       {open && (
         <>

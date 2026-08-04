@@ -1,4 +1,3 @@
-import 'server-only'
 import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import { channels, plans, posts, projects, updates } from '@/db/schema'

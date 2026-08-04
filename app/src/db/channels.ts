@@ -20,6 +20,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   // -------------------------------------------------------------------------
   {
     id: 'bluesky',
+    cooldownDays: 0,
     metricsSource: 'bluesky',
     submitUrlTemplate: 'https://bsky.app/intent/compose?text={text}',
     name: 'Bluesky',
@@ -35,6 +36,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'mastodon',
+    cooldownDays: 0,
     submitUrlTemplate: 'https://mastodon.social/share?text={text}',
     name: 'Mastodon',
     category: 'social',
@@ -49,6 +51,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'x',
+    cooldownDays: 0,
     submitUrlTemplate: 'https://x.com/intent/post?text={text}',
     name: 'X / Twitter',
     category: 'social',
@@ -63,6 +66,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'linkedin',
+    cooldownDays: 3,
     submitUrlTemplate: 'https://www.linkedin.com/feed/?shareActive=true',
     name: 'LinkedIn',
     category: 'social',
@@ -77,6 +81,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'instagram',
+    cooldownDays: 2,
     submitUrlTemplate: 'https://www.instagram.com/',
     name: 'Instagram',
     category: 'social',
@@ -96,6 +101,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   // -------------------------------------------------------------------------
   {
     id: 'producthunt',
+    cooldownDays: 180,
     name: 'Product Hunt',
     category: 'launch_platform',
     submitUrlTemplate: 'https://www.producthunt.com/posts/new?url={url}',
@@ -112,6 +118,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'hackernews',
+    cooldownDays: 21,
     metricsSource: 'hackernews',
     name: 'Hacker News (Show HN)',
     category: 'launch_platform',
@@ -128,6 +135,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'peerlist',
+    cooldownDays: 90,
     name: 'Peerlist Launchpad',
     category: 'launch_platform',
     submitUrlTemplate: 'https://peerlist.io/launchpad',
@@ -141,6 +149,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'uneed',
+    cooldownDays: 180,
     name: 'Uneed',
     category: 'launch_platform',
     submitUrlTemplate: 'https://www.uneed.best/submit-a-tool',
@@ -154,6 +163,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'betalist',
+    cooldownDays: 365,
     name: 'BetaList',
     category: 'launch_platform',
     submitUrlTemplate: 'https://betalist.com/submit',
@@ -167,6 +177,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'startupbase',
+    cooldownDays: 180,
     name: 'StartupBase',
     category: 'launch_platform',
     submitUrlTemplate: 'https://startupbase.io/submit',
@@ -180,6 +191,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'fazier',
+    cooldownDays: 180,
     name: 'Fazier',
     category: 'launch_platform',
     submitUrlTemplate: 'https://fazier.com/submit',
@@ -196,6 +208,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   // -------------------------------------------------------------------------
   {
     id: 'saashub',
+    cooldownDays: 365,
     name: 'SaaSHub',
     category: 'directory',
     submitUrlTemplate: 'https://www.saashub.com/submit',
@@ -208,6 +221,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'alternativeto',
+    cooldownDays: 365,
     name: 'AlternativeTo',
     category: 'directory',
     submitUrlTemplate: 'https://alternativeto.net/manage-item/?new=1',
@@ -220,6 +234,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'theresanaiforthat',
+    cooldownDays: 365,
     name: "There's An AI For That",
     category: 'directory',
     submitUrlTemplate: 'https://theresanaiforthat.com/submit/',
@@ -233,6 +248,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'futurepedia',
+    cooldownDays: 365,
     name: 'Futurepedia',
     category: 'directory',
     submitUrlTemplate: 'https://www.futurepedia.io/submit-tool',
@@ -250,6 +266,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   // -------------------------------------------------------------------------
   {
     id: 'reddit:sideproject',
+    cooldownDays: 30,
     metricsSource: 'reddit',
     name: 'r/SideProject',
     category: 'reddit',
@@ -266,6 +283,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'reddit:saas',
+    cooldownDays: 30,
     metricsSource: 'reddit',
     name: 'r/SaaS',
     category: 'reddit',
@@ -282,6 +300,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'reddit:indiehackers',
+    cooldownDays: 21,
     metricsSource: 'reddit',
     name: 'r/indiehackers',
     category: 'reddit',
@@ -298,6 +317,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'reddit:vibecoding',
+    cooldownDays: 14,
     metricsSource: 'reddit',
     name: 'r/vibecoding',
     category: 'reddit',
@@ -314,6 +334,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'reddit:buildinpublic',
+    cooldownDays: 7,
     metricsSource: 'reddit',
     name: 'r/buildinpublic',
     category: 'reddit',
@@ -330,6 +351,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'reddit:microsaas',
+    cooldownDays: 30,
     metricsSource: 'reddit',
     name: 'r/microsaas',
     category: 'reddit',
@@ -346,6 +368,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'reddit:claudeai',
+    cooldownDays: 30,
     metricsSource: 'reddit',
     name: 'r/ClaudeAI',
     category: 'reddit',
@@ -367,6 +390,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   // -------------------------------------------------------------------------
   {
     id: 'devto',
+    cooldownDays: 3,
     submitUrlTemplate: 'https://dev.to/new',
     name: 'DEV.to',
     category: 'dev_content',
@@ -381,6 +405,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'hashnode',
+    cooldownDays: 3,
     name: 'Hashnode',
     category: 'dev_content',
     submitUrlTemplate: 'https://hashnode.com/create/story',
@@ -393,6 +418,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'github-release',
+    cooldownDays: 0,
     name: 'GitHub Release Notes',
     category: 'dev_content',
     submitUrlTemplate: '{repo}/releases/new',
@@ -409,6 +435,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   // -------------------------------------------------------------------------
   {
     id: 'indiehackers',
+    cooldownDays: 21,
     name: 'Indie Hackers',
     category: 'community',
     submitUrlTemplate: 'https://www.indiehackers.com/new-post',
@@ -422,6 +449,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'discord',
+    cooldownDays: 7,
     submitUrlTemplate: 'https://discord.com/channels/@me',
     name: 'Discord',
     category: 'community',
@@ -435,6 +463,7 @@ export const CHANNEL_SEED: ChannelSeed[] = [
   },
   {
     id: 'telegram',
+    cooldownDays: 1,
     submitUrlTemplate: 'https://web.telegram.org/',
     name: 'Telegram',
     category: 'community',
