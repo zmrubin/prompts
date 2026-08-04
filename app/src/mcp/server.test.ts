@@ -22,11 +22,19 @@ class Client {
   private id = 0
 
   constructor(dbPath: string) {
-    this.proc = spawn('npx', ['tsx', 'src/mcp/server.ts'], {
-      cwd: ROOT,
-      env: { ...process.env, PRAGENT_DB: dbPath },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }) as ChildProcessWithoutNullStreams
+    // Spawned exactly the way Claude Code does: absolute paths, an absolute
+    // tsconfig so the `@/` alias resolves, and a working directory that has
+    // nothing to do with this repo. Running it from ROOT would hide the whole
+    // class of cwd-dependent bugs.
+    this.proc = spawn(
+      resolve(ROOT, 'node_modules/.bin/tsx'),
+      ['--tsconfig', resolve(ROOT, 'tsconfig.json'), resolve(ROOT, 'src/mcp/server.ts')],
+      {
+        cwd: tmpdir(),
+        env: { ...process.env, PRAGENT_DB: dbPath },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    ) as ChildProcessWithoutNullStreams
 
     this.proc.stdout.on('data', (d: Buffer) => {
       this.buf += d.toString()

@@ -19,6 +19,13 @@ import { baseUrl } from '@/lib/config'
 const ROOT = resolve(import.meta.dirname, '../..')
 const ENTRY = resolve(ROOT, 'src/mcp/server.ts')
 const TSX = resolve(ROOT, 'node_modules/.bin/tsx')
+/**
+ * tsx resolves tsconfig `paths` relative to the working directory, and Claude
+ * Code launches this from wherever the user happens to be — so the `@/` alias
+ * has to be pinned to an absolute tsconfig or none of the imports resolve.
+ */
+const TSCONFIG = resolve(ROOT, 'tsconfig.json')
+const ARGS = ['--tsconfig', TSCONFIG, ENTRY]
 const NAME = 'pr-agent'
 
 const ok = (m: string) => console.log(`  ✓ ${m}`)
@@ -45,7 +52,7 @@ function registerWithClaudeCode(): boolean {
   try {
     execFileSync(
       'claude',
-      ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', NAME, '--', TSX, ENTRY],
+      ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', NAME, '--', TSX, ...ARGS],
       { stdio: 'inherit' },
     )
   } catch {
@@ -95,7 +102,7 @@ function registerWithClaudeDesktop(): boolean {
     return false
   }
 
-  config.mcpServers = { ...config.mcpServers, [NAME]: { command: TSX, args: [ENTRY] } }
+  config.mcpServers = { ...config.mcpServers, [NAME]: { command: TSX, args: ARGS } }
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(config, null, 2) + '\n')
   ok(`Registered with Claude Desktop (${path})`)
@@ -142,10 +149,10 @@ const desktop = registerWithClaudeDesktop()
 if (!registered && !desktop) {
   console.log('\n  Nothing was registered automatically. Do one of these:\n')
   console.log('  Claude Code:')
-  console.log(`    claude mcp add --scope user --transport stdio ${NAME} -- ${TSX} ${ENTRY}\n`)
+  console.log(`    claude mcp add --scope user --transport stdio ${NAME} -- ${TSX} ${ARGS.join(' ')}\n`)
   console.log('  Claude Desktop — add to claude_desktop_config.json:')
   console.log(
-    JSON.stringify({ mcpServers: { [NAME]: { command: TSX, args: [ENTRY] } } }, null, 2) + '\n',
+    JSON.stringify({ mcpServers: { [NAME]: { command: TSX, args: ARGS } } }, null, 2) + '\n',
   )
   process.exit(1)
 }
