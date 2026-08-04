@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { clipboardText, getPlan, submitUrl } from '@/lib/plans'
 import { canAutoFetch, latestMetricsFor } from '@/lib/metrics'
+import { cooldowns } from '@/lib/status'
 import { Badge, Card, PageHeader } from '@/components/ui'
 import { PostCard } from './post-card'
 
@@ -21,6 +22,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const { plan, project, update, items } = result
 
   const metricsById = latestMetricsFor(items.map((i) => i.post.id))
+  const cools = cooldowns()
   const posted = items.filter((i) => i.post.status === 'posted').length
   const active = items.filter((i) => i.post.status !== 'skipped').length
   const os = plan.openSourceRec
@@ -137,6 +139,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
                   })}
                   metric={metricsById.get(post.id)}
                   canAutoFetch={canAutoFetch(channel.metricsSource)}
+                  cooldown={cools.get(channel.id) ?? null}
                 />
               ))}
             </div>

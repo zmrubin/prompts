@@ -83,6 +83,13 @@ export const channels = sqliteTable('channels', {
   requiresTags: jsonList('requires_tags'),
   /** Which public metrics fetcher can read this venue's stats, if any. */
   metricsSource: text('metrics_source', { enum: ['hackernews', 'reddit', 'bluesky'] }),
+  /**
+   * How long this venue expects you to wait between self-promotional posts.
+   * Not a scheduler — it drives a warning, and the planner skips venues that
+   * are still cooling. Posting weekly to a sub that expects monthly is the
+   * fastest way to get removed or banned.
+   */
+  cooldownDays: integer('cooldown_days'),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(100),
 })
