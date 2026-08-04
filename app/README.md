@@ -15,7 +15,7 @@ npm install
 npm run setup
 ```
 
-`setup` creates the database, seeds the 29-venue catalog, and registers an MCP server with Claude Code at user scope — so it's available in every session, from any directory. **After this you never run anything again.** Claude Code launches the server itself.
+`setup` does four things: creates the database, seeds the 29-venue catalog, installs the skill to `~/.claude/skills/`, and registers the MCP server with Claude Code at user scope — so both halves work in every session, from any directory. **After this you never run anything again.** Claude Code launches the server itself.
 
 Open Claude and try:
 
@@ -24,7 +24,7 @@ Open Claude and try:
 > *"I posted the Show HN — here's the link."*
 > *"How did that launch go?"*
 
-Verify it took with `claude mcp list`; you should see `pr-agent … Connected`.
+Verify with `claude mcp list` — you should see `pr-agent … Connected` — and `ls ~/.claude/skills/launch-plan`.
 
 ### Optional: keep the dashboard always up
 
