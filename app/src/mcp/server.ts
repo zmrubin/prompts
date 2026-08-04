@@ -9,7 +9,7 @@ import { runMigrations } from '@/db/migrate'
 import { seed } from '@/db/seed'
 import { PlanFileSchema } from '@/lib/plan-file'
 import { importPlan } from '@/lib/import-plan'
-import { clipboardText, getPlan, submitUrl } from '@/lib/plans'
+import { clipboardText, getPlan, projectBySlug, projectHistory, submitUrl } from '@/lib/plans'
 import { cooldowns, outstanding, projectStatuses, venueStats } from '@/lib/status'
 import { refreshMetrics } from '@/lib/metrics'
 import { ensureDashboard, dashboardUrl } from './dashboard'
@@ -114,28 +114,33 @@ server.tool(
   { slug: z.string().describe('The project slug, e.g. "coldbrew".') },
   async ({ slug }) => {
     const statuses = projectStatuses()
-    const project = statuses.find((p) => p.slug === slug)
-    if (!project) {
+    const summary = statuses.find((p) => p.slug === slug)
+    const project = projectBySlug(slug)
+    if (!summary || !project) {
       return text(
         `No project with slug "${slug}". Known slugs: ${statuses.map((s) => s.slug).join(', ') || '(none yet)'}`,
       )
     }
-    const history = outstanding() // shape reuse for channel names
-    void history
 
-    const posted = db.select().from(posts).where(eq(posts.status, 'posted')).all()
-    const chanNames = new Map(db.select().from(channels).all().map((c) => [c.id, c.name]))
+    const history = projectHistory(project.id)
+    const posted = history.posts.filter((p) => p.status === 'posted')
 
     return json({
-      project,
+      project: summary,
+      previousUpdates: history.updates.map((u) => ({
+        ...u,
+        createdAt: u.createdAt.toISOString(),
+      })),
       previouslyPosted: posted.map((p) => ({
-        venue: chanNames.get(p.channelId),
+        venue: p.venue,
         channelId: p.channelId,
+        forUpdate: p.forUpdate,
         title: p.title,
         body: p.body,
         postedAt: p.postedAt?.toISOString(),
         postedUrl: p.postedUrl,
       })),
+      note: 'This is only this project\'s history. Do not restate what previousUpdates already announced or what previouslyPosted already said.',
     })
   },
 )
@@ -175,6 +180,7 @@ server.tool(
         result.skippedChannels.length
           ? `Dropped unknown venue ids: ${result.skippedChannels.join(', ')}`
           : null,
+        ...result.corrections.map((c) => `Corrected — ${c}`),
         '',
         `Open: ${result.url}`,
       ]
@@ -314,9 +320,11 @@ server.tool(
       }),
       linkPlacement: post.linkPlacement,
       reminder:
-        post.linkPlacement === 'first_comment'
+        channel.linkPolicy === 'first_comment'
           ? `Post the body first, then add ${post.linkUrl} as the first comment — a link in the body suppresses reach here.`
-          : undefined,
+          : channel.linkPolicy === 'not_clickable'
+            ? 'Links are not clickable at this venue. Drive people to your bio link instead.'
+            : undefined,
       postingRules: channel.postingRules,
     })
   },

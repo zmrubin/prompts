@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx src/db/seed.ts && next dev",
+    "dev": "tsx src/db/seed.ts && next dev --port ${PRAGENT_PORT:-4321}",
     "build": "tsx src/db/seed.ts && next build",
-    "start": "next start",
+    "start": "next start --port ${PRAGENT_PORT:-4321}",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
@@ -16,7 +16,10 @@
     "db:setup": "tsx src/db/seed.ts",
     "setup": "tsx src/scripts/setup.ts",
     "mcp": "tsx src/mcp/server.ts",
-    "refresh": "tsx src/scripts/refresh-metrics.ts"
+    "refresh": "tsx src/scripts/refresh-metrics.ts",
+    "test": "tsx --test src/mcp/server.test.ts",
+    "install-service": "tsx src/scripts/service.ts",
+    "uninstall-service": "tsx src/scripts/service.ts -- --uninstall"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

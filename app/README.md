@@ -1,92 +1,93 @@
 # PR Agent
 
-A local planning tool for launching side projects. Describe what you shipped, get a strategy memo plus finished post copy for every venue worth posting to, then work through a checklist: copy, paste, mark done, track how it went.
+A local tool for launching side projects. Tell Claude what you shipped; get a strategy memo plus finished post copy for every venue worth posting to, then work through a checklist — copy, paste, mark done, track how it went.
 
-Runs on your machine. SQLite file, no server, no accounts, no login.
-
-## What it does
-
-1. **A plan comes in** — either from the Claude skill (no API key needed) or from the built-in planner (your own API key).
-2. **You get finished copy per venue** — written in that venue's native voice, inside its real character limits, with the link placed where that platform doesn't punish it.
-3. **You post it by hand** — one click copies the post, another opens the submit form. Mark it done.
-4. **You track what happened** — paste the URL back and it pulls public stats for Hacker News, Reddit and Bluesky. Everything else you log yourself.
-
-There is no auto-posting. That was deliberate: Hacker News and Product Hunt have no write API and ban automated submissions, X charges per post, and Reddit, LinkedIn and Instagram all sit behind multi-week approvals. A tool that pretends otherwise is a tool that silently fails. This one makes the manual path fast instead.
+Runs on your machine. One SQLite file, no accounts, no login, nothing hosted.
 
 ## Setup
 
-Node 22+. No database server, no configuration.
+Node 22+. Two commands, once, ever.
 
 ```bash
 git clone https://github.com/zmrubin/prompts
 cd prompts/app
 npm install
-npm run dev          # http://localhost:3000
+npm run setup
 ```
 
-That's it. The first run creates `data/pragent.db` and seeds the 29-venue catalog.
+`setup` creates the database, seeds the 29-venue catalog, and registers an MCP server with Claude Code at user scope — so it's available in every session, from any directory. **After this you never run anything again.** Claude Code launches the server itself.
 
-## Getting a plan in
+Open Claude and try:
 
-### Option A — the Claude skill (no API key)
+> *"I just shipped Coldbrew, a local-first RSS reader — help me launch it."*
+> *"What should I post today?"*
+> *"I posted the Show HN — here's the link."*
+> *"How did that launch go?"*
 
-Uses your Claude subscription instead of API credits.
+Verify it took with `claude mcp list`; you should see `pr-agent … Connected`.
+
+### Optional: keep the dashboard always up
 
 ```bash
-cp -r .claude/skills/launch-plan ~/.claude/skills/
+npm run install-service     # launchd on macOS, systemd --user on Linux
 ```
 
-Then tell Claude about a project: *"I just shipped Coldbrew, a local-first RSS reader — help me launch it."* It reads the real venue rules out of your database, asks for whatever it's missing, writes the plan, and imports it. You get a URL to open.
+Two units: the dashboard on login, and a daily metrics refresh. Undo with `npm run uninstall-service`. Without it, Claude starts the dashboard on demand the first time it needs one.
 
-Mention an existing project and it adds an update rather than starting over.
+## How it works
 
-### Option B — your own API key
+**The skill** (`.claude/skills/launch-plan`) carries the writing judgement — what lands on Hacker News versus LinkedIn, why "here's what I learned building this" beats "here's my product" on Reddit.
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # or GEMINI_API_KEY, MOONSHOT_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY
-npm run dev
-```
+**The MCP server** carries the data and the actions — the venue catalog, your history, cooldowns, and everything that writes.
 
-The **New project** button appears once a key is present.
+**The dashboard** (`http://localhost:4321`) is where you actually work: copy a post, open the venue's submit form prefilled, tick it off.
 
-### Option C — a file
+## What it will not do
 
-```bash
-npm run --silent import -- plan.json
-```
-
-The shape is in `src/lib/plan-file.ts`, and the importer names the exact field when something is wrong.
-
-## Commands
-
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Migrate, seed, and serve on :3000 |
-| `npm run import -- plan.json` | Load a plan file |
-| `npm run channels` | Print the venue catalog with its rules |
-| `npm run channels -- --json` | Same, machine-readable (what the skill reads) |
-| `npm run db:setup` | Migrate and seed without starting the server |
+It does not post for you. Hacker News and Product Hunt have no write API and ban automated submissions, X charges per post, and Reddit, LinkedIn and Instagram each sit behind multi-week approvals. A tool that pretends otherwise is one that fails silently. This one makes the manual path fast instead.
 
 ## The venue catalog
 
-`src/db/channels.ts` is the substance of this tool: 29 venues with their real character limits, link policies, audiences and self-promotion rules — Hacker News's 80-character title cap and `Show HN:` format, Product Hunt's 60-character tagline, r/SaaS confining promotion to the weekly thread, X's reach penalty on links.
+`src/db/channels.ts` is the substance: 29 venues with their real character limits, link policies, audiences, self-promotion rules and **cooldowns**.
 
-Those rules are fed verbatim to whatever writes your plan, so **editing one line there changes the copy everywhere that venue appears.** That is usually the right place to fix copy you don't like, rather than re-prompting.
+Those rules are fed verbatim to whatever writes your plan, so **editing one line there changes the copy everywhere that venue appears.** That's usually the right place to fix copy you don't like, rather than re-prompting.
 
-Toggle venues off in the Channels tab and nothing will suggest them again.
+### Cooldowns
+
+r/SideProject expects about 30 days between promotional posts. Hacker News about 21. Post again too soon and you get downvoted or removed — the fastest way to burn a venue when you ship weekly.
+
+Cooldowns are tracked **across all your projects**, because a subreddit doesn't care that your last post there was for something else; it sees the same account promoting again. The planner is told to skip venues that are still cooling, and the dashboard warns you with the name of the project that used it last.
 
 ## Tracking
 
 Mark a post done, paste its URL, and:
 
-- **Hacker News, Reddit, Bluesky** — pulls score and comment count from public, auth-free APIs. No account, no credentials.
-- **Everywhere else** — a two-field manual entry. No scraping.
+- **Hacker News, Reddit, Bluesky** — pulls score and comment count from public, auth-free APIs. No account, no credentials, no scraping.
+- **Everywhere else** — two manual fields.
 
-Readings are stored as a series rather than a single number, so you can tell a post that's still climbing from one that stalled.
+`/performance` ranks venues by median score across every launch, flagging **thin data** under three scored posts rather than implying rigour it doesn't have. It gets genuinely useful around your tenth launch.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `npm run setup` | Database + register the MCP server. Run once. |
+| `npm run install-service` | Dashboard on login + daily stats refresh |
+| `npm test` | The MCP contract suite, over real stdio |
+| `npm run dev` | Serve the dashboard directly (port 4321) |
+| `npm run channels` | Print the venue catalog and its rules |
+| `npm run import -- plan.json` | Load a plan file by hand |
+| `npm run refresh` | Pull fresh public stats now |
+
+Set `PRAGENT_PORT` to move the dashboard, `PRAGENT_DB` to move the database.
+
+## Without Claude
+
+Set `ANTHROPIC_API_KEY` (or `GEMINI_API_KEY`, `MOONSHOT_API_KEY`, `DASHSCOPE_API_KEY`, `OPENAI_API_KEY`) and a **New project** form appears in the dashboard. Or write a plan file yourself — the shape is in `src/lib/plan-file.ts` — and `npm run import` it.
 
 ## Data
 
-Everything lives in `data/pragent.db`. Copy it, back it up, delete it — it's one file. `PRAGENT_DB=/some/other/path.db` moves it.
+Everything is in `data/pragent.db`. Copy it, back it up, delete it — it's one file.
 
 ## A caveat the tool can't fix
 

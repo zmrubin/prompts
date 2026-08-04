@@ -34,6 +34,7 @@ try {
   if (r.skippedChannels.length) {
     console.log(`  Skipped unknown channels: ${r.skippedChannels.join(', ')}`)
   }
+  for (const c of r.corrections) console.log(`  Corrected ${c}`)
   console.log('')
   console.log(`  Open: ${r.url}`)
   console.log('')

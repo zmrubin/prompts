@@ -90,6 +90,59 @@ export function plansForProject(projectId: string) {
   return ups.map((update) => ({ update, plan: ps.find((p) => p.updateId === update.id) }))
 }
 
+/**
+ * One project's own history: what was announced, and what copy went out
+ * where. Scoped through updates → plans → posts, so a follow-up plan is
+ * never shown another project's copy — which would be worse than showing
+ * nothing, since the writer would avoid repeating things it never said.
+ */
+export function projectHistory(projectId: string) {
+  const ups = db
+    .select()
+    .from(updates)
+    .where(eq(updates.projectId, projectId))
+    .orderBy(desc(updates.createdAt))
+    .all()
+  if (!ups.length) return { updates: [], posts: [] }
+
+  const ps = db
+    .select()
+    .from(plans)
+    .where(inArray(plans.updateId, ups.map((u) => u.id)))
+    .all()
+  const rows = ps.length
+    ? db
+        .select()
+        .from(posts)
+        .where(inArray(posts.planId, ps.map((p) => p.id)))
+        .all()
+    : []
+
+  const chanNames = new Map(db.select().from(channels).all().map((c) => [c.id, c.name]))
+  const updateOfPlan = new Map(ps.map((p) => [p.id, p.updateId]))
+  const updateTitle = new Map(ups.map((u) => [u.id, u.title]))
+
+  return {
+    updates: ups.map((u) => ({
+      title: u.title,
+      kind: u.kind,
+      version: u.version,
+      body: u.body,
+      createdAt: u.createdAt,
+    })),
+    posts: rows.map((p) => ({
+      venue: chanNames.get(p.channelId) ?? p.channelId,
+      channelId: p.channelId,
+      forUpdate: updateTitle.get(updateOfPlan.get(p.planId) ?? '') ?? null,
+      status: p.status,
+      title: p.title,
+      body: p.body,
+      postedAt: p.postedAt,
+      postedUrl: p.postedUrl,
+    })),
+  }
+}
+
 /** Every post across every plan, for the global checklist. */
 export function allPosts() {
   const rows = db.select().from(posts).all()
