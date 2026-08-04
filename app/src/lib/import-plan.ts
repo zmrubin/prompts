@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { channels, plans, posts, projects, updates } from '@/db/schema'
 import { PlanFileSchema, type PlanFile } from './plan-file'
+import { baseUrl } from './config'
 
 export type ImportResult = {
   projectSlug: string
@@ -9,6 +10,8 @@ export type ImportResult = {
   planId: string
   postsCreated: number
   skippedChannels: string[]
+  /** Link placements the venue's own policy required us to change. */
+  corrections: string[]
   url: string
 }
 
@@ -17,7 +20,7 @@ export type ImportResult = {
  * running the skill again for the same project adds an update rather than
  * duplicating it.
  */
-export function importPlan(input: unknown, baseUrl = 'http://localhost:3000'): ImportResult {
+export function importPlan(input: unknown, base = baseUrl()): ImportResult {
   const file: PlanFile = PlanFileSchema.parse(input)
 
   const existing = db
@@ -84,6 +87,27 @@ export function importPlan(input: unknown, baseUrl = 'http://localhost:3000'): I
     .map((p) => p.channelId)
     .filter((id) => !known.has(id))
 
+  /**
+   * The venue's own link policy is authoritative. A plan that puts a link in
+   * the body of a venue that penalises exactly that is a silent own-goal, so
+   * correct it here and report the correction rather than trusting the plan.
+   */
+  const policies = new Map(
+    db.select({ id: channels.id, linkPolicy: channels.linkPolicy }).from(channels).all()
+      .map((c) => [c.id, c.linkPolicy]),
+  )
+  const corrections: string[] = []
+  for (const p of usable) {
+    const policy = policies.get(p.channelId)
+    if (policy === 'first_comment' && p.linkPlacement === 'body') {
+      p.linkPlacement = 'first_comment'
+      corrections.push(`${p.channelId}: link moved to the first comment`)
+    } else if (policy === 'not_clickable' && p.linkPlacement !== 'none') {
+      p.linkPlacement = 'none'
+      corrections.push(`${p.channelId}: links are not clickable there, so it was dropped`)
+    }
+  }
+
   if (usable.length) {
     db.insert(posts)
       .values(
@@ -109,6 +133,7 @@ export function importPlan(input: unknown, baseUrl = 'http://localhost:3000'): I
     planId,
     postsCreated: usable.length,
     skippedChannels: [...new Set(skipped)],
-    url: `${baseUrl}/plans/${planId}`,
+    corrections,
+    url: `${base}/plans/${planId}`,
   }
 }

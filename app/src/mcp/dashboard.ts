@@ -1,13 +1,11 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { PORT, baseUrl } from '@/lib/config'
 
-const PORT = Number(process.env.PRAGENT_PORT ?? 4321)
 const ROOT = resolve(import.meta.dirname, '../..')
 
-export function dashboardUrl() {
-  return `http://localhost:${PORT}`
-}
+export const dashboardUrl = baseUrl
 
 async function isUp(): Promise<boolean> {
   try {
