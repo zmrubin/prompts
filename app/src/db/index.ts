@@ -1,35 +1,28 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
-import { env } from '@/env'
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { mkdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import * as schema from './schema'
+
+/** Override with PRAGENT_DB to keep the database outside the repo. */
+const DB_PATH = resolve(process.env.PRAGENT_DB ?? 'data/pragent.db')
 
 declare global {
   // eslint-disable-next-line no-var
-  var __prAgentSql: ReturnType<typeof postgres> | undefined
+  var __pragentDb: Database.Database | undefined
 }
 
-function client() {
-  // Reuse across HMR reloads in dev so we don't exhaust Postgres connections.
-  if (!globalThis.__prAgentSql) {
-    globalThis.__prAgentSql = postgres(env().DATABASE_URL, {
-      max: 10,
-      // Railway Postgres terminates idle connections; keep the pool honest.
-      idle_timeout: 20,
-      connect_timeout: 10,
-    })
+function connection() {
+  if (!globalThis.__pragentDb) {
+    mkdirSync(dirname(DB_PATH), { recursive: true })
+    const sqlite = new Database(DB_PATH)
+    // WAL lets the dashboard read while the import CLI writes.
+    sqlite.pragma('journal_mode = WAL')
+    sqlite.pragma('foreign_keys = ON')
+    globalThis.__pragentDb = sqlite
   }
-  return globalThis.__prAgentSql
+  return globalThis.__pragentDb
 }
 
-export const db = drizzle(client(), { schema })
-export { schema }
-
-/**
- * A one-shot connection for scripts that must exit cleanly (migrations, seed,
- * the Railway cron scheduler). The long-lived pool above would keep the
- * process alive and Railway would eventually kill the container.
- */
-export function oneShotDb() {
-  const sql = postgres(env().DATABASE_URL, { max: 1, connect_timeout: 10 })
-  return { db: drizzle(sql, { schema }), close: () => sql.end({ timeout: 5 }) }
-}
+export const db = drizzle(connection(), { schema })
+export { schema, DB_PATH }

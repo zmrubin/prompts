@@ -3,8 +3,6 @@ import type { Config } from 'drizzle-kit'
 export default {
   schema: './src/db/schema.ts',
   out: './drizzle',
-  dialect: 'postgresql',
-  dbCredentials: {
-    url: process.env.DATABASE_URL ?? '',
-  },
+  dialect: 'sqlite',
+  dbCredentials: { url: process.env.PRAGENT_DB ?? 'data/pragent.db' },
 } satisfies Config

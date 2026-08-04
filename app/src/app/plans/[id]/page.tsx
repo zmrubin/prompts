@@ -1,49 +1,32 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { requireAuth } from '@/lib/session'
-import { getPlanWithDrafts } from '@/lib/plans'
+import { notFound } from 'next/navigation'
+import { clipboardText, getPlan, submitUrl } from '@/lib/plans'
+import { canAutoFetch, latestMetricsFor } from '@/lib/metrics'
 import { Badge, Card, PageHeader } from '@/components/ui'
-import { DraftEditor } from './draft-editor'
-import { ScheduleAll } from './schedule-all'
+import { PostCard } from './post-card'
 
 export const dynamic = 'force-dynamic'
-
-const OS_TONE = {
-  'open-source': 'good',
-  partial: 'warn',
-  'keep-closed': 'neutral',
-} as const
 
 const OS_LABEL = {
   'open-source': 'Open source it',
   partial: 'Open source part of it',
   'keep-closed': 'Keep it closed',
 } as const
+const OS_TONE = { 'open-source': 'good', partial: 'warn', 'keep-closed': 'neutral' } as const
 
 export default async function PlanPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAuth()
   const { id } = await params
-
-  const result = await getPlanWithDrafts(id)
+  const result = getPlan(id)
   if (!result) notFound()
-  const { plan, project, update, drafts } = result
+  const { plan, project, update, items } = result
 
-  const positioning = plan.positioning as {
-    oneLiner?: string
-    audience?: string
-    differentiator?: string
-  } | null
-  const openSource = plan.openSourceRec as {
-    recommendation?: keyof typeof OS_LABEL
-    reasoning?: string
-    confidence?: string
-  } | null
+  const metricsById = latestMetricsFor(items.map((i) => i.post.id))
+  const posted = items.filter((i) => i.post.status === 'posted').length
+  const active = items.filter((i) => i.post.status !== 'skipped').length
+  const os = plan.openSourceRec
+  const pos = plan.positioning
 
-  const byPriority = {
-    must: drafts.filter((d) => d.draft.priority === 'must'),
-    should: drafts.filter((d) => d.draft.priority === 'should'),
-    optional: drafts.filter((d) => d.draft.priority === 'optional'),
-  }
+  const tiers = ['must', 'should', 'optional'] as const
 
   return (
     <>
@@ -56,62 +39,62 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
                 {project.name}
               </Link>
               {' · '}
-              {plan.provider}/{plan.model}
+              <span className="font-mono text-xs">{plan.source}</span>
             </>
           )
         }
+        action={
+          <div className="text-right">
+            <div className="font-mono text-2xl font-semibold tabular-nums">
+              {posted}
+              <span className="text-muted">/{active}</span>
+            </div>
+            <div className="text-xs text-muted">posted</div>
+          </div>
+        }
       />
 
-      {plan.status === 'failed' && (
-        <Card className="mb-6 border-bad/40">
-          <div className="font-medium text-bad">Generation failed</div>
-          <p className="mt-1 text-sm text-muted prose-copy">{plan.error}</p>
-        </Card>
-      )}
-
-      {positioning?.oneLiner && (
-        <Card className="mb-6">
+      {pos && (
+        <Card className="mb-4">
           <div className="mb-3 text-xs uppercase tracking-wide text-muted">Positioning</div>
-          <p className="text-lg font-medium">{positioning.oneLiner}</p>
+          <p className="text-lg font-medium">{pos.oneLiner}</p>
           <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             <div>
               <div className="text-xs uppercase tracking-wide text-muted">Audience</div>
-              <p className="mt-1 text-muted">{positioning.audience}</p>
+              <p className="mt-1 text-muted">{pos.audience}</p>
             </div>
             <div>
               <div className="text-xs uppercase tracking-wide text-muted">Differentiator</div>
-              <p className="mt-1 text-muted">{positioning.differentiator}</p>
+              <p className="mt-1 text-muted">{pos.differentiator}</p>
             </div>
           </div>
         </Card>
       )}
 
-      {openSource?.recommendation && (
-        <Card className="mb-6">
-          <div className="mb-2 flex items-center gap-3">
-            <span className="text-xs uppercase tracking-wide text-muted">
-              Open source call
-            </span>
-            <Badge tone={OS_TONE[openSource.recommendation] ?? 'neutral'}>
-              {OS_LABEL[openSource.recommendation] ?? openSource.recommendation}
+      {os && (
+        <Card className="mb-4">
+          <div className="mb-2 flex flex-wrap items-center gap-3">
+            <span className="text-xs uppercase tracking-wide text-muted">Open source call</span>
+            <Badge tone={OS_TONE[os.recommendation] ?? 'neutral'}>
+              {OS_LABEL[os.recommendation] ?? os.recommendation}
             </Badge>
-            <span className="text-xs text-muted">{openSource.confidence} confidence</span>
+            <span className="text-xs text-muted">{os.confidence} confidence</span>
           </div>
-          <p className="text-sm text-muted prose-copy">{openSource.reasoning}</p>
+          <p className="prose-copy text-sm text-muted">{os.reasoning}</p>
         </Card>
       )}
 
       {plan.strategyMemo && (
-        <Card className="mb-6">
+        <Card className="mb-4">
           <div className="mb-3 text-xs uppercase tracking-wide text-muted">Strategy</div>
-          <div className="text-sm leading-relaxed prose-copy">{plan.strategyMemo}</div>
+          <div className="prose-copy text-sm leading-relaxed">{plan.strategyMemo}</div>
         </Card>
       )}
 
       {plan.assetChecklist.length > 0 && (
         <Card className="mb-8">
           <div className="mb-3 text-xs uppercase tracking-wide text-muted">
-            Prepare before launching
+            Prepare before posting
           </div>
           <ul className="space-y-2 text-sm">
             {plan.assetChecklist.map((a, i) => (
@@ -124,30 +107,42 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         </Card>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Posts — {drafts.length} channel{drafts.length === 1 ? '' : 's'}
-        </h2>
-        {drafts.length > 0 && <ScheduleAll planId={plan.id} />}
-      </div>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted">
+        Posts — {items.length} venue{items.length === 1 ? '' : 's'}
+      </h2>
 
-      {(['must', 'should', 'optional'] as const).map((tier) =>
-        byPriority[tier].length ? (
+      {tiers.map((tier) => {
+        const group = items.filter((i) => i.post.priority === tier)
+        if (!group.length) return null
+        return (
           <section key={tier} className="mb-8">
             <div className="mb-3 flex items-center gap-2">
               <Badge tone={tier === 'must' ? 'accent' : 'neutral'}>{tier}</Badge>
               <span className="text-xs text-muted">
-                {byPriority[tier].length} channel{byPriority[tier].length === 1 ? '' : 's'}
+                {group.length} venue{group.length === 1 ? '' : 's'}
               </span>
             </div>
             <div className="space-y-3">
-              {byPriority[tier].map(({ draft, channel }) => (
-                <DraftEditor key={draft.id} draft={draft} channel={channel} />
+              {group.map(({ post, channel }) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  channel={channel}
+                  clipboard={clipboardText(post)}
+                  submitUrl={submitUrl(channel, {
+                    url: post.linkUrl,
+                    title: post.title,
+                    text: clipboardText(post),
+                    repo: project?.repoUrl,
+                  })}
+                  metric={metricsById.get(post.id)}
+                  canAutoFetch={canAutoFetch(channel.metricsSource)}
+                />
               ))}
             </div>
           </section>
-        ) : null,
-      )}
+        )
+      })}
     </>
   )
 }

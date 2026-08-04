@@ -1,80 +1,80 @@
 import { redirect } from 'next/navigation'
-import { db } from '@/db'
-import { projects } from '@/db/schema'
-import { requireAuth } from '@/lib/session'
+import { generatePlan } from '@/lib/generate'
+import { providersWithKeys } from '@/env'
 import { Button, Card, Field, inputClass, PageHeader } from '@/components/ui'
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 60)
-}
+export const dynamic = 'force-dynamic'
 
-function csv(value: FormDataEntryValue | null): string[] {
-  return String(value ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
 
-export default async function NewProject() {
-  await requireAuth()
+const csv = (v: FormDataEntryValue | null) =>
+  String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+
+export default function NewProject() {
+  const keys = providersWithKeys()
+
+  if (!keys.length) {
+    return (
+      <>
+        <PageHeader title="New project" />
+        <Card>
+          <p className="prose-copy text-sm text-muted">
+            This form needs an API key. Set{' '}
+            <code className="font-mono text-xs">ANTHROPIC_API_KEY</code> or{' '}
+            <code className="font-mono text-xs">GEMINI_API_KEY</code> in your environment and
+            restart, or use the Claude skill instead — that path needs no key.
+          </p>
+        </Card>
+      </>
+    )
+  }
 
   async function create(formData: FormData) {
     'use server'
     const name = String(formData.get('name') ?? '').trim()
-    if (!name) redirect('/projects/new')
+    const updateBody = String(formData.get('updateBody') ?? '').trim()
+    if (!name || !updateBody) redirect('/projects/new')
 
-    // Slug collisions are possible across similar names; suffix rather than fail.
-    const base = slugify(name)
-    const existing = await db.select({ slug: projects.slug }).from(projects)
-    const taken = new Set(existing.map((p) => p.slug))
-    let slug = base
-    let n = 2
-    while (taken.has(slug)) slug = `${base}-${n++}`
-
-    await db.insert(projects).values({
+    const result = await generatePlan({
       name,
-      slug,
+      slug: slugify(name),
       tagline: String(formData.get('tagline') ?? '') || null,
       description: String(formData.get('description') ?? '') || null,
       url: String(formData.get('url') ?? '') || null,
       repoUrl: String(formData.get('repoUrl') ?? '') || null,
-      status: (String(formData.get('status')) || 'building') as 'building',
+      status: 'launched',
       tags: csv(formData.get('tags')),
       techStack: csv(formData.get('techStack')),
       isOpenSource: formData.get('isOpenSource') === 'on',
       targetAudience: String(formData.get('targetAudience') ?? '') || null,
+      updateTitle: String(formData.get('updateTitle') ?? '') || `${name} launch`,
+      updateBody,
     })
 
-    redirect(`/projects/${slug}`)
+    redirect(`/plans/${result.planId}`)
   }
 
   return (
     <>
       <PageHeader
         title="New project"
-        subtitle="The more detail here, the better the generated copy will be."
+        subtitle={`Planning with ${keys[0]}. Generation takes 20–60 seconds.`}
       />
       <Card>
         <form action={create} className="space-y-5">
           <Field label="Name">
             <input name="name" required autoFocus className={inputClass} />
           </Field>
-
           <Field label="Tagline" help="One line. What it does, not why it's exciting.">
             <input name="tagline" className={inputClass} />
           </Field>
-
           <Field
             label="Description"
-            help="What it does, who it's for, and what makes it different. This is the main thing the model reasons over."
+            help="What it does, who it's for, what makes it different. The main thing the planner reasons over."
           >
-            <textarea name="description" rows={5} className={inputClass} />
+            <textarea name="description" rows={4} className={inputClass} />
           </Field>
-
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="URL">
               <input name="url" type="url" placeholder="https://" className={inputClass} />
@@ -83,39 +83,35 @@ export default async function NewProject() {
               <input name="repoUrl" type="url" placeholder="https://github.com/" className={inputClass} />
             </Field>
           </div>
-
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Tags"
-              help="Comma separated. Use 'ai' to unlock the AI directories."
-            >
-              <input name="tags" placeholder="ai, devtool, saas" className={inputClass} />
+            <Field label="Tags" help="Comma separated. Use 'ai' to unlock the AI directories.">
+              <input name="tags" placeholder="ai, devtool" className={inputClass} />
             </Field>
             <Field label="Tech stack" help="Comma separated.">
-              <input name="techStack" placeholder="Next.js, Postgres" className={inputClass} />
+              <input name="techStack" placeholder="Next.js, SQLite" className={inputClass} />
             </Field>
           </div>
-
           <Field label="Target audience">
             <input name="targetAudience" className={inputClass} />
           </Field>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="isOpenSource" className="size-4" />
+            <span className="text-sm">Already open source</span>
+          </label>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Status">
-              <select name="status" defaultValue="building" className={inputClass}>
-                <option value="idea">Idea</option>
-                <option value="building">Building</option>
-                <option value="launched">Launched</option>
-                <option value="archived">Archived</option>
-              </select>
+          <div className="border-t border-edge pt-5">
+            <Field label="Announcement title">
+              <input name="updateTitle" placeholder="Coldbrew 1.0" className={inputClass} />
             </Field>
-            <label className="flex items-end gap-2 pb-2">
-              <input type="checkbox" name="isOpenSource" className="size-4" />
-              <span className="text-sm">Already open source</span>
-            </label>
           </div>
+          <Field
+            label="What's new"
+            help="Bullet points are fine. Specifics — numbers, what was hard, what broke — are what make the posts land."
+          >
+            <textarea name="updateBody" rows={8} required className={inputClass} />
+          </Field>
 
-          <Button type="submit">Create project</Button>
+          <Button type="submit">Generate plan</Button>
         </form>
       </Card>
     </>

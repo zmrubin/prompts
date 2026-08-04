@@ -1,158 +1,59 @@
 import 'server-only'
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { channels, launchPlans, postDrafts, projects, updates } from '@/db/schema'
-import { generateStructured } from '@/llm/generate'
-import { LAUNCH_PLAN_JSON_SCHEMA, LaunchPlanSchema } from '@/llm/schema'
-import { buildPrompt, SYSTEM_PROMPT } from '@/llm/prompt'
-import { getLlmKeys, getSettings } from './settings'
+import { channels, plans, posts, projects, updates } from '@/db/schema'
 
-/**
- * Runs the LLM over one update and materialises the plan plus a draft per
- * channel. Called from a route handler, not the request path of a page —
- * generation takes tens of seconds.
- */
-export async function generateLaunchPlan(updateId: string) {
-  const [update] = await db.select().from(updates).where(eq(updates.id, updateId)).limit(1)
-  if (!update) throw new Error('Update not found')
-
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, update.projectId))
-    .limit(1)
-  if (!project) throw new Error('Project not found')
-
-  const settings = await getSettings()
-  const keys = await getLlmKeys()
-  const apiKey = keys[settings.llmProvider]
-  if (!apiKey) {
-    throw new Error(
-      `No API key stored for ${settings.llmProvider}. Add one in Settings before generating a plan.`,
-    )
-  }
-
-  // Only offer channels that are enabled and whose tag gate this project passes.
-  const all = await db
-    .select()
-    .from(channels)
-    .where(eq(channels.enabled, true))
-    .orderBy(asc(channels.sortOrder))
-
-  const projectTags = new Set(project.tags.map((t) => t.toLowerCase()))
-  const eligible = all.filter(
-    (c) =>
-      c.requiresTags.length === 0 ||
-      c.requiresTags.some((t) => projectTags.has(t.toLowerCase())),
-  )
-
-  const [plan] = await db
-    .insert(launchPlans)
-    .values({
-      updateId,
-      provider: settings.llmProvider,
-      model: settings.llmModel,
-      status: 'pending',
-    })
-    .returning()
-
-  try {
-    const { data, usage, raw } = await generateStructured(
-      {
-        provider: settings.llmProvider,
-        model: settings.llmModel,
-        apiKey,
-        system: SYSTEM_PROMPT,
-        prompt: buildPrompt({ project, update, channels: eligible }),
-        jsonSchema: LAUNCH_PLAN_JSON_SCHEMA as unknown as Record<string, unknown>,
-      },
-      LaunchPlanSchema,
-    )
-
-    // The model occasionally invents a channel id; drop those rather than
-    // failing the whole plan on a foreign key violation.
-    const validIds = new Set(eligible.map((c) => c.id))
-    const picks = data.channelPicks.filter((p) => validIds.has(p.channelId))
-
-    await db
-      .update(launchPlans)
-      .set({
-        status: 'ready',
-        strategyMemo: data.strategyMemo,
-        positioning: data.positioning,
-        openSourceRec: data.openSource,
-        assetChecklist: data.assetChecklist,
-        rawResponse: raw as object,
-        tokenUsage: usage,
-      })
-      .where(eq(launchPlans.id, plan.id))
-
-    if (picks.length) {
-      await db.insert(postDrafts).values(
-        picks.map((p) => ({
-          launchPlanId: plan.id,
-          channelId: p.channelId,
-          priority: p.priority,
-          title: p.draft.title,
-          body: p.draft.body,
-          linkUrl: project.url ?? null,
-          linkPlacement: p.draft.linkPlacement,
-          imagePrompt: p.draft.imagePrompt,
-          rationale: p.rationale,
-          suggestedOffsetHours: Math.round(p.suggestedOffsetHours),
-        })),
-      )
-    }
-
-    const dropped = data.channelPicks.length - picks.length
-    return { planId: plan.id, drafts: picks.length, dropped }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    await db
-      .update(launchPlans)
-      .set({ status: 'failed', error: message })
-      .where(eq(launchPlans.id, plan.id))
-    throw e
-  }
+/** Fills {url}, {title}, {text} and {repo} in a channel's submit template. */
+export function submitUrl(
+  channel: { submitUrlTemplate: string | null; homepageUrl: string | null },
+  vars: { url?: string | null; title?: string | null; text?: string | null; repo?: string | null },
+): string {
+  const t = channel.submitUrlTemplate ?? channel.homepageUrl ?? ''
+  return t
+    .replace('{url}', encodeURIComponent(vars.url ?? ''))
+    .replace('{title}', encodeURIComponent(vars.title ?? ''))
+    .replace('{text}', encodeURIComponent(vars.text ?? ''))
+    .replace('{repo}', vars.repo ?? '')
 }
 
-export async function getPlanWithDrafts(planId: string) {
-  const [plan] = await db
-    .select()
-    .from(launchPlans)
-    .where(eq(launchPlans.id, planId))
-    .limit(1)
+/** What actually goes on the clipboard for a given post. */
+export function clipboardText(p: {
+  title: string | null
+  body: string
+  linkUrl: string | null
+  linkPlacement: string
+}): string {
+  const parts = [p.title, p.body]
+  if (p.linkUrl && p.linkPlacement === 'body') parts.push(p.linkUrl)
+  return parts.filter(Boolean).join('\n\n')
+}
+
+const PRIORITY = { must: 0, should: 1, optional: 2 } as const
+
+export function getPlan(planId: string) {
+  const plan = db.select().from(plans).where(eq(plans.id, planId)).get()
   if (!plan) return null
 
-  const drafts = await db
-    .select()
-    .from(postDrafts)
-    .where(eq(postDrafts.launchPlanId, planId))
+  const update = db.select().from(updates).where(eq(updates.id, plan.updateId)).get()
+  const project = update
+    ? db.select().from(projects).where(eq(projects.id, update.projectId)).get()
+    : undefined
 
-  const ids = drafts.map((d) => d.channelId)
-  const chans = ids.length
-    ? await db.select().from(channels).where(inArray(channels.id, ids))
+  const rows = db.select().from(posts).where(eq(posts.planId, planId)).all()
+  const chans = rows.length
+    ? db
+        .select()
+        .from(channels)
+        .where(inArray(channels.id, rows.map((r) => r.channelId)))
+        .all()
     : []
   const byId = new Map(chans.map((c) => [c.id, c]))
 
-  const [update] = await db
-    .select()
-    .from(updates)
-    .where(eq(updates.id, plan.updateId))
-    .limit(1)
-  const [project] = update
-    ? await db.select().from(projects).where(eq(projects.id, update.projectId)).limit(1)
-    : []
-
-  const order = { must: 0, should: 1, optional: 2 } as const
-  // Postgres returns rows in no guaranteed order, so priority and offset alone
-  // leave ties to reshuffle between loads — which moves cards around under the
-  // cursor while you are editing them. The channel's own sort order, then its
-  // id, makes the list stable.
-  drafts.sort(
+  // Stable: priority, then day, then the channel's own order, then id.
+  rows.sort(
     (a, b) =>
-      order[a.priority] - order[b.priority] ||
-      a.suggestedOffsetHours - b.suggestedOffsetHours ||
+      PRIORITY[a.priority] - PRIORITY[b.priority] ||
+      a.dayOffset - b.dayOffset ||
       (byId.get(a.channelId)?.sortOrder ?? 0) - (byId.get(b.channelId)?.sortOrder ?? 0) ||
       a.channelId.localeCompare(b.channelId),
   )
@@ -161,15 +62,52 @@ export async function getPlanWithDrafts(planId: string) {
     plan,
     project,
     update,
-    drafts: drafts.map((d) => ({ draft: d, channel: byId.get(d.channelId)! })),
+    items: rows.map((post) => ({ post, channel: byId.get(post.channelId)! })),
   }
 }
 
-export async function latestPlanForUpdate(updateId: string) {
-  const [plan] = await db
+export function listProjects() {
+  return db.select().from(projects).orderBy(desc(projects.updatedAt)).all()
+}
+
+export function projectBySlug(slug: string) {
+  return db.select().from(projects).where(eq(projects.slug, slug)).get()
+}
+
+export function plansForProject(projectId: string) {
+  const ups = db
     .select()
-    .from(launchPlans)
-    .where(and(eq(launchPlans.updateId, updateId), eq(launchPlans.status, 'ready')))
-    .limit(1)
-  return plan ?? null
+    .from(updates)
+    .where(eq(updates.projectId, projectId))
+    .orderBy(desc(updates.createdAt))
+    .all()
+  if (!ups.length) return []
+  const ps = db
+    .select()
+    .from(plans)
+    .where(inArray(plans.updateId, ups.map((u) => u.id)))
+    .orderBy(desc(plans.createdAt))
+    .all()
+  return ups.map((update) => ({ update, plan: ps.find((p) => p.updateId === update.id) }))
+}
+
+/** Every post across every plan, for the global checklist. */
+export function allPosts() {
+  const rows = db.select().from(posts).all()
+  const chans = db.select().from(channels).orderBy(asc(channels.sortOrder)).all()
+  const byId = new Map(chans.map((c) => [c.id, c]))
+  const planRows = db.select().from(plans).all()
+  const updateRows = db.select().from(updates).all()
+  const projectRows = db.select().from(projects).all()
+
+  return rows.map((post) => {
+    const plan = planRows.find((p) => p.id === post.planId)
+    const update = updateRows.find((u) => u.id === plan?.updateId)
+    const project = projectRows.find((p) => p.id === update?.projectId)
+    return { post, channel: byId.get(post.channelId)!, plan, update, project }
+  })
+}
+
+export function enabledChannels() {
+  return db.select().from(channels).where(eq(channels.enabled, true)).orderBy(asc(channels.sortOrder)).all()
 }
