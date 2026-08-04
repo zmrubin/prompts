@@ -226,6 +226,58 @@ describe('pr-agent MCP server', () => {
     )
   })
 
+  /**
+   * Re-running the skill for a project used to leave the previous plan's
+   * un-posted items outstanding forever, so the checklist filled up with
+   * stale copy that looked identical to the fresh copy beside it.
+   */
+  test('a newer plan supersedes the older plan\'s un-posted copy', async () => {
+    await c.callText('create_plan', { plan: planFor('delta', 'Delta', ['mastodon', 'devto']) })
+    const first = await c.call('get_status')
+    const deltaTodo = first.outstanding.filter((o: any) => o.projectSlug === 'delta')
+    assert.equal(deltaTodo.length, 2)
+
+    const msg = await c.callText('create_plan', {
+      plan: planFor('delta', 'Delta v2', ['mastodon']),
+    })
+    assert.match(msg, /Superseded older un-posted copy for: Mastodon/)
+
+    const after = await c.call('get_status')
+    const stillTodo = after.outstanding.filter((o: any) => o.projectSlug === 'delta')
+    const mastodon = stillTodo.filter((o: any) => o.channelId === 'mastodon')
+    assert.equal(mastodon.length, 1, 'exactly one Mastodon post should remain outstanding')
+
+    // devto was not in the newer plan, so it is untouched.
+    assert.equal(stillTodo.filter((o: any) => o.channelId === 'devto').length, 1)
+  })
+
+  test('superseding never rewrites something already posted', async () => {
+    const s = await c.call('get_status')
+    const m = s.outstanding.find(
+      (o: any) => o.projectSlug === 'delta' && o.channelId === 'mastodon',
+    )
+    await c.callText('set_post_status', { postId: m.postId, status: 'posted' })
+
+    await c.callText('create_plan', { plan: planFor('delta', 'Delta v3', ['mastodon']) })
+
+    const history = await c.call('get_project_history', { slug: 'delta' })
+    assert.equal(
+      history.previouslyPosted.filter((p: any) => p.channelId === 'mastodon').length,
+      1,
+      'the posted Mastodon entry must survive a later plan',
+    )
+  })
+
+  test('outstanding items name the update they belong to', async () => {
+    const s = await c.call('get_status')
+    for (const o of s.outstanding) {
+      assert.ok(o.update, `outstanding item for ${o.venue} has no update title`)
+    }
+    for (const p of s.projects) {
+      for (const n of p.nextUp) assert.ok(n.update, 'nextUp entry has no update title')
+    }
+  })
+
   test('get_status rolls up progress across projects', async () => {
     const before = await c.call('get_status')
     await c.callText('create_plan', { plan: planFor('beta', 'Beta', ['devto', 'mastodon']) })

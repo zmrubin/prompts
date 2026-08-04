@@ -19,7 +19,8 @@
     "refresh": "tsx src/scripts/refresh-metrics.ts",
     "test": "tsx --test src/mcp/server.test.ts",
     "install-service": "tsx src/scripts/service.ts",
-    "uninstall-service": "tsx src/scripts/service.ts -- --uninstall"
+    "uninstall-service": "tsx src/scripts/service.ts -- --uninstall",
+    "reset": "tsx src/scripts/reset.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

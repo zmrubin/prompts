@@ -1,8 +1,9 @@
 import { resolve } from 'node:path'
+import { appRoot } from '@/lib/config'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { db, DB_PATH } from './index'
 
-const MIGRATIONS = resolve(import.meta.dirname, '../..', 'drizzle')
+const MIGRATIONS = resolve(appRoot(), 'drizzle')
 
 /**
  * Idempotent. Safe to run on every `npm run dev` — that is how the app

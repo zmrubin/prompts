@@ -54,7 +54,7 @@ export default function ChecklistPage() {
                 {day === 0 ? 'Launch day' : `Day ${day}`}
               </h2>
               <Card className="divide-y divide-edge p-0">
-                {items.map(({ post, channel, project, plan }) => (
+                {items.map(({ post, channel, project, plan, update }) => (
                   <div key={post.id} className="flex items-center gap-3 px-5 py-3">
                     <span className="text-edge">▢</span>
                     <div className="min-w-0 flex-1">
@@ -64,7 +64,10 @@ export default function ChecklistPage() {
                           {post.priority}
                         </Badge>
                       </div>
-                      <div className="truncate text-xs text-muted">{project?.name}</div>
+                      <div className="truncate text-xs text-muted">
+                        {project?.name}
+                        {update?.title ? ` · ${update.title}` : ''}
+                      </div>
                     </div>
                     {plan && (
                       <Link

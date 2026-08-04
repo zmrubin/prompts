@@ -90,6 +90,7 @@ server.tool(
         postId: o.post.id,
         project: o.project?.name,
         projectSlug: o.project?.slug,
+        update: o.update?.title ?? null,
         venue: o.channel?.name,
         channelId: o.post.channelId,
         priority: o.post.priority,
@@ -181,6 +182,9 @@ server.tool(
           ? `Dropped unknown venue ids: ${result.skippedChannels.join(', ')}`
           : null,
         ...result.corrections.map((c) => `Corrected — ${c}`),
+        result.superseded.length
+          ? `Superseded older un-posted copy for: ${result.superseded.join(', ')}`
+          : null,
         '',
         `Open: ${result.url}`,
       ]

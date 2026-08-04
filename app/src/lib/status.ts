@@ -67,7 +67,7 @@ export type ProjectStatus = {
   todo: number
   skipped: number
   latestPlanId?: string
-  nextUp: { channelId: string; channelName: string; dayOffset: number }[]
+  nextUp: { channelId: string; channelName: string; dayOffset: number; update: string | null }[]
 }
 
 /** Cross-project roll-up: what's outstanding everywhere, at a glance. */
@@ -78,6 +78,10 @@ export function projectStatuses(): ProjectStatus[] {
   const allPosts = db.select().from(posts).all()
   const chanNames = new Map(
     db.select().from(channels).orderBy(asc(channels.sortOrder)).all().map((c) => [c.id, c.name]),
+  )
+  // plan -> update title, so a post can always say which release it announces
+  const titleOfPlan = new Map(
+    allPlans.map((p) => [p.id, allUpdates.find((u) => u.id === p.updateId)?.title ?? null]),
   )
 
   return allProjects.map((project) => {
@@ -105,6 +109,7 @@ export function projectStatuses(): ProjectStatus[] {
           channelId: p.channelId,
           channelName: chanNames.get(p.channelId) ?? p.channelId,
           dayOffset: p.dayOffset,
+          update: titleOfPlan.get(p.planId) ?? null,
         })),
     }
   })
