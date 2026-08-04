@@ -1,18 +1,15 @@
-import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { oneShotDb } from './index'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { db, DB_PATH } from './index'
 
-async function main() {
-  const { db, close } = oneShotDb()
-  console.log('Running migrations…')
-  await migrate(db, { migrationsFolder: './drizzle' })
-  console.log('Migrations complete.')
-  await close()
+/**
+ * Idempotent. Safe to run on every `npm run dev` — that is how the app
+ * self-heals a fresh clone with no setup step.
+ */
+export function runMigrations() {
+  migrate(db, { migrationsFolder: 'drizzle' })
 }
 
-main().then(
-  () => process.exit(0),
-  (err) => {
-    console.error('Migration failed:', err)
-    process.exit(1)
-  },
-)
+if (process.argv[1]?.endsWith('migrate.ts')) {
+  runMigrations()
+  console.log(`Database ready at ${DB_PATH}`)
+}

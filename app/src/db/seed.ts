@@ -1,54 +1,43 @@
-import { oneShotDb } from './index'
+import { db } from './index'
 import { channels, settings } from './schema'
 import { CHANNEL_SEED } from './channels'
+import { runMigrations } from './migrate'
 
 /**
- * Idempotent. Re-running updates the catalog in place so edits to
- * channels.ts (posting rules especially) propagate on the next deploy
- * without clobbering the `enabled` flag you toggled in the UI.
+ * Idempotent. Re-running refreshes the catalog in place so edits to
+ * channels.ts propagate, while leaving your `enabled` toggles alone.
  */
-async function main() {
-  const { db, close } = oneShotDb()
-
+export function seed() {
   for (const c of CHANNEL_SEED) {
-    await db
-      .insert(channels)
+    db.insert(channels)
       .values(c)
       .onConflictDoUpdate({
         target: channels.id,
         set: {
           name: c.name,
           category: c.category,
-          automation: c.automation,
-          connectorKey: c.connectorKey ?? null,
           submitUrlTemplate: c.submitUrlTemplate ?? null,
           homepageUrl: c.homepageUrl ?? null,
           charLimit: c.charLimit ?? null,
           titleCharLimit: c.titleCharLimit ?? null,
-          supportsImages: c.supportsImages ?? true,
           requiresImage: c.requiresImage ?? false,
           linkPolicy: c.linkPolicy ?? 'fine',
           audience: c.audience ?? null,
           postingRules: c.postingRules ?? null,
           bestTime: c.bestTime ?? null,
           requiresTags: c.requiresTags ?? [],
-          minSpacingMinutes: c.minSpacingMinutes ?? 60,
+          metricsSource: c.metricsSource ?? null,
           sortOrder: c.sortOrder ?? 100,
-          // deliberately not touching `enabled`
+          // `enabled` deliberately untouched.
         },
       })
+      .run()
   }
-
-  await db.insert(settings).values({ id: 1 }).onConflictDoNothing()
-
-  console.log(`Seeded ${CHANNEL_SEED.length} channels.`)
-  await close()
+  db.insert(settings).values({ id: 1 }).onConflictDoNothing().run()
+  return CHANNEL_SEED.length
 }
 
-main().then(
-  () => process.exit(0),
-  (err) => {
-    console.error('Seed failed:', err)
-    process.exit(1)
-  },
-)
+if (process.argv[1]?.endsWith('seed.ts')) {
+  runMigrations()
+  console.log(`Seeded ${seed()} channels.`)
+}

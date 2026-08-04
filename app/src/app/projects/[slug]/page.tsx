@@ -1,53 +1,19 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { desc, eq, inArray } from 'drizzle-orm'
-import { db } from '@/db'
-import { launchPlans, projects, updates } from '@/db/schema'
-import { requireAuth } from '@/lib/session'
-import { Badge, Card, Empty, LinkButton, PageHeader } from '@/components/ui'
+import { plansForProject, projectBySlug } from '@/lib/plans'
+import { Badge, Card, Empty, PageHeader } from '@/components/ui'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ProjectPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
-  await requireAuth()
+export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-
-  const [project] = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
+  const project = projectBySlug(slug)
   if (!project) notFound()
-
-  const projectUpdates = await db
-    .select()
-    .from(updates)
-    .where(eq(updates.projectId, project.id))
-    .orderBy(desc(updates.createdAt))
-
-  const plans = projectUpdates.length
-    ? await db
-        .select()
-        .from(launchPlans)
-        .where(
-          inArray(
-            launchPlans.updateId,
-            projectUpdates.map((u) => u.id),
-          ),
-        )
-        .orderBy(desc(launchPlans.createdAt))
-    : []
-
-  const planByUpdate = new Map<string, (typeof plans)[number]>()
-  for (const p of plans) if (!planByUpdate.has(p.updateId)) planByUpdate.set(p.updateId, p)
+  const history = plansForProject(project.id)
 
   return (
     <>
-      <PageHeader
-        title={project.name}
-        subtitle={project.tagline ?? undefined}
-        action={<LinkButton href={`/projects/${slug}/updates/new`}>New update</LinkButton>}
-      />
+      <PageHeader title={project.name} subtitle={project.tagline ?? undefined} />
 
       <Card className="mb-8">
         <div className="grid gap-4 text-sm sm:grid-cols-2">
@@ -62,12 +28,7 @@ export default async function ProjectPage({
           {project.url && (
             <div>
               <div className="text-xs uppercase tracking-wide text-muted">URL</div>
-              <a
-                href={project.url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block text-accent hover:underline"
-              >
+              <a href={project.url} target="_blank" rel="noreferrer" className="mt-1 block break-all text-accent hover:underline">
                 {project.url}
               </a>
             </div>
@@ -75,19 +36,14 @@ export default async function ProjectPage({
           {project.repoUrl && (
             <div>
               <div className="text-xs uppercase tracking-wide text-muted">Repo</div>
-              <a
-                href={project.repoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block text-accent hover:underline"
-              >
+              <a href={project.repoUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-accent hover:underline">
                 {project.repoUrl}
               </a>
             </div>
           )}
         </div>
         {project.description && (
-          <p className="mt-4 border-t border-edge pt-4 text-sm text-muted prose-copy">
+          <p className="prose-copy mt-4 border-t border-edge pt-4 text-sm text-muted">
             {project.description}
           </p>
         )}
@@ -100,50 +56,31 @@ export default async function ProjectPage({
         )}
       </Card>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-        Updates
-      </h2>
-      {projectUpdates.length === 0 ? (
-        <Empty>
-          No updates yet. Create one to generate a launch plan and post copy for every channel.
-        </Empty>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Updates</h2>
+      {history.length === 0 ? (
+        <Empty>No plans yet for this project.</Empty>
       ) : (
         <div className="space-y-3">
-          {projectUpdates.map((u) => {
-            const plan = planByUpdate.get(u.id)
-            return (
-              <Card key={u.id} className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{u.title}</span>
-                    <Badge>{u.kind}</Badge>
-                    {u.version && <Badge>{u.version}</Badge>}
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted">{u.body}</p>
-                  <div className="mt-2 text-xs text-muted">
-                    {u.createdAt.toLocaleDateString()}
-                  </div>
+          {history.map(({ update, plan }) => (
+            <Card key={update.id} className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{update.title}</span>
+                  <Badge>{update.kind}</Badge>
+                  {update.version && <Badge>{update.version}</Badge>}
                 </div>
-                {plan?.status === 'ready' ? (
-                  <Link
-                    href={`/plans/${plan.id}`}
-                    className="shrink-0 text-sm text-accent hover:underline"
-                  >
-                    View plan →
-                  </Link>
-                ) : plan?.status === 'failed' ? (
-                  <Badge tone="bad">Generation failed</Badge>
-                ) : (
-                  <Link
-                    href={`/projects/${slug}/updates/new?updateId=${u.id}`}
-                    className="shrink-0 text-sm text-accent hover:underline"
-                  >
-                    Generate plan →
-                  </Link>
-                )}
-              </Card>
-            )
-          })}
+                <p className="prose-copy mt-1 line-clamp-2 text-sm text-muted">{update.body}</p>
+                <div className="mt-2 text-xs text-muted">
+                  {update.createdAt.toLocaleDateString()}
+                </div>
+              </div>
+              {plan && (
+                <Link href={`/plans/${plan.id}`} className="shrink-0 text-sm text-accent hover:underline">
+                  Open plan →
+                </Link>
+              )}
+            </Card>
+          ))}
         </div>
       )}
     </>

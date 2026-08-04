@@ -1,97 +1,93 @@
-# PR Agent Dashboard
+# PR Agent
 
-A private, single-user dashboard for launching side projects: add a project or a feature update, get a strategy memo plus post copy tailored to every channel worth posting to, then schedule it and let it go out.
+A local planning tool for launching side projects. Describe what you shipped, get a strategy memo plus finished post copy for every venue worth posting to, then work through a checklist: copy, paste, mark done, track how it went.
 
-## What it actually does
+Runs on your machine. SQLite file, no server, no accounts, no login.
 
-1. **Catalogue a project** — name, description, stack, tags, links.
-2. **Add an update** — a launch, a feature, a milestone, a write-up. Write rough notes.
-3. **Generate a plan** — an LLM produces a strategy memo, an open-source recommendation, a ranked channel list, and finished post copy for each one, written in that venue's native voice and inside its character limit.
-4. **Edit and schedule** — every draft is editable; "Schedule all" staggers them across the following days, respecting each channel's minimum spacing.
-5. **It posts** — automatically where the platform allows, and into a "Needs you" queue with copy plus a prefilled submit link where it doesn't.
+## What it does
 
-## What can and cannot be automated
+1. **A plan comes in** — either from the Claude skill (no API key needed) or from the built-in planner (your own API key).
+2. **You get finished copy per venue** — written in that venue's native voice, inside its real character limits, with the link placed where that platform doesn't punish it.
+3. **You post it by hand** — one click copies the post, another opens the submit form. Mark it done.
+4. **You track what happened** — paste the URL back and it pulls public stats for Hacker News, Reddit and Bluesky. Everything else you log yourself.
 
-This is the honest breakdown, and it drives the whole design.
+There is no auto-posting. That was deliberate: Hacker News and Product Hunt have no write API and ban automated submissions, X charges per post, and Reddit, LinkedIn and Instagram all sit behind multi-week approvals. A tool that pretends otherwise is a tool that silently fails. This one makes the manual path fast instead.
 
-**Posts automatically — free, no approval:** Bluesky, Mastodon, DEV.to, Discord, Telegram.
+## Setup
 
-**Posts automatically once you clear a gate:**
-
-| Channel | Gate |
-| --- | --- |
-| X / Twitter | Pay-per-use since Feb 2026 — about $0.015 a post, $0.20 with a link. Needs a developer account with billing. |
-| Reddit | Self-service OAuth registration is closed; app approval takes roughly 2–4 weeks. |
-| LinkedIn | Needs the "Share on LinkedIn" product and a `w_member_social` token that expires every ~60 days. |
-| Instagram | Business account, linked Facebook Page, and Meta app review per permission — roughly 2–4 weeks. |
-
-**Never automated, by design:** Hacker News, Product Hunt, and every directory (BetaList, Uneed, Peerlist, StartupBase, Fazier, SaaSHub, AlternativeTo, There's An AI For That, Futurepedia). None has a usable write API, and automating a Show HN or a Product Hunt launch violates their rules and risks a ban. These always land in the "Needs you" queue with the copy ready and the submit form one click away.
-
-Until a gated channel is connected, it degrades gracefully to the manual path rather than failing — the post still reaches you, it just needs a click.
-
-## Local development
-
-Requires Node 22+ and a Postgres database.
+Node 22+. No database server, no configuration.
 
 ```bash
-cd app
+git clone https://github.com/zmrubin/prompts
+cd prompts/app
 npm install
-npm run hash-password -- 'your-password'   # prints the three secrets you need
-cp .env.example .env                        # then paste the secrets in
-npm run db:migrate
-npm run db:seed                             # loads the 29-channel catalog
+npm run dev          # http://localhost:3000
+```
+
+That's it. The first run creates `data/pragent.db` and seeds the 29-venue catalog.
+
+## Getting a plan in
+
+### Option A — the Claude skill (no API key)
+
+Uses your Claude subscription instead of API credits.
+
+```bash
+cp -r .claude/skills/launch-plan ~/.claude/skills/
+```
+
+Then tell Claude about a project: *"I just shipped Coldbrew, a local-first RSS reader — help me launch it."* It reads the real venue rules out of your database, asks for whatever it's missing, writes the plan, and imports it. You get a URL to open.
+
+Mention an existing project and it adds an update rather than starting over.
+
+### Option B — your own API key
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...   # or GEMINI_API_KEY, MOONSHOT_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY
 npm run dev
 ```
 
-`DRY_RUN=true` is set in `.env.example` and is a **hard override**: while it is anything other than `false`, no connector can post for real regardless of the dashboard toggle. Leave it on until you've watched a full cycle work.
+The **New project** button appears once a key is present.
 
-### Verifying the pipeline without touching a real account
+### Option C — a file
 
 ```bash
-npm run smoke        # creates a project, update, plan, drafts, and queues two posts
-npm run scheduler    # drains the queue
+npm run --silent import -- plan.json
 ```
 
-With `DRY_RUN` on, connectors log the exact request they would send and report success. The smoke test deliberately covers both paths: Discord (an auto channel) and Hacker News (a manual one).
+The shape is in `src/lib/plan-file.ts`, and the importer names the exact field when something is wrong.
 
-For a real end-to-end test with actual API calls, the safest three are a Discord webhook pointed at a private server, a throwaway Bluesky account, and DEV.to with `publish` set to `false` — that last one creates a genuine unpublished draft, so you verify the real API path with zero exposure.
+## Commands
 
-## Deploying to Railway
-
-**Full step-by-step guide with troubleshooting: [DEPLOY.md](./DEPLOY.md).** Short version below.
-
-Three services from this repo:
-
-**1. Postgres** — add the Railway Postgres plugin. It provides `DATABASE_URL`.
-
-**2. Web** — root directory `app`. Railway picks up `railway.json`, which runs migrations and reseeds the channel catalog before each deploy. Set:
-
-| Variable | Value |
+| Command | What it does |
 | --- | --- |
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `ADMIN_PASSWORD_HASH` | from `npm run hash-password` |
-| `SESSION_SECRET` | from `npm run hash-password` |
-| `ENCRYPTION_KEY` | from `npm run hash-password` |
-| `DRY_RUN` | `true` until you're ready |
+| `npm run dev` | Migrate, seed, and serve on :3000 |
+| `npm run import -- plan.json` | Load a plan file |
+| `npm run channels` | Print the venue catalog with its rules |
+| `npm run channels -- --json` | Same, machine-readable (what the skill reads) |
+| `npm run db:setup` | Migrate and seed without starting the server |
 
-**3. Scheduler** — same repo, root directory `app`. In its settings:
+## The venue catalog
 
-- **Config-as-code path:** `railway.scheduler.json` — this is what stops the scheduler from inheriting the web service's start command and re-running migrations on every tick.
-- **Cron schedule:** `*/5 * * * *` (5 minutes is Railway's minimum; schedules are UTC).
+`src/db/channels.ts` is the substance of this tool: 29 venues with their real character limits, link policies, audiences and self-promotion rules — Hacker News's 80-character title cap and `Show HN:` format, Product Hunt's 60-character tagline, r/SaaS confining promotion to the weekly thread, X's reach penalty on links.
 
-It claims due posts, publishes them, and exits — Railway requires a cron service to exit cleanly, which is why it uses a one-shot connection rather than the pooled one, and why its restart policy is `NEVER` (a clean exit is success, not a crash to retry).
+Those rules are fed verbatim to whatever writes your plan, so **editing one line there changes the copy everywhere that venue appears.** That is usually the right place to fix copy you don't like, rather than re-prompting.
 
-Give it the same environment variables as the web service.
+Toggle venues off in the Channels tab and nothing will suggest them again.
 
-> `ENCRYPTION_KEY` decrypts every stored credential. Losing it means reconnecting every account; rotating it invalidates them all.
+## Tracking
 
-## Architecture notes
+Mark a post done, paste its URL, and:
 
-- **`src/db/channels.ts`** is the product. 29 venues with their real posting rules, character limits, link policies, and self-promotion constraints. These are fed verbatim into the LLM prompt, so improving a rule here improves the copy everywhere.
-- **`src/connectors/`** — one `Connector` interface covers both automated and manual channels. Manual venues return `{kind:'manual', submitUrl}` instead of posting, so the scheduler and UI never branch on "can this be automated".
-- **`src/llm/`** — a native Anthropic adapter (structured output via a forced tool call) and one OpenAI-compatible adapter that covers Gemini, Kimi, Qwen and OpenAI by base URL alone. A Zod validation failure triggers one repair round with the errors fed back.
-- **`src/scheduler/run.ts`** — claims a batch with `FOR UPDATE SKIP LOCKED`, so overlapping cron runs never double-post. Idempotency keys are `hash(draftId + scheduledFor)` with a unique constraint. Stale locks older than 10 minutes are reclaimed; retryable failures back off exponentially for up to 5 attempts.
+- **Hacker News, Reddit, Bluesky** — pulls score and comment count from public, auth-free APIs. No account, no credentials.
+- **Everywhere else** — a two-field manual entry. No scraping.
 
-## A caveat worth keeping in mind
+Readings are stored as a series rather than a single number, so you can tell a post that's still climbing from one that stalled.
 
-Scheduling the post is the easy half. On Reddit, Hacker News and Indie Hackers, showing up to answer comments in the first few hours is what determines whether a post works — and no amount of automation does that part. The generated copy leans into "here's what I learned building this" for exactly that reason: it's the framing those communities reward, and it gives you something real to talk about when people reply.
+## Data
+
+Everything lives in `data/pragent.db`. Copy it, back it up, delete it — it's one file. `PRAGENT_DB=/some/other/path.db` moves it.
+
+## A caveat the tool can't fix
+
+Getting the post written is the easy half. On Reddit and Hacker News, showing up to answer comments in the first few hours is most of what decides whether it lands. The copy leans on "here's what I learned building this" partly because that's what those communities reward, and partly because it gives you something real to say when people reply.

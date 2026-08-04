@@ -1,176 +1,93 @@
 import Link from 'next/link'
-import { desc, eq, inArray, gt, and } from 'drizzle-orm'
-import { db } from '@/db'
-import { channels, projects, scheduledPosts, updates } from '@/db/schema'
-import { requireAuth } from '@/lib/session'
-import { isDryRun } from '@/lib/settings'
-import { Badge, Card, Empty, LinkButton, PageHeader, statusBadge } from '@/components/ui'
+import { allPosts, listProjects } from '@/lib/plans'
+import { providersWithKeys } from '@/env'
+import { Badge, Card, Empty, LinkButton, PageHeader } from '@/components/ui'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Dashboard() {
-  await requireAuth()
-  const dryRun = await isDryRun()
+export default function Home() {
+  const projects = listProjects()
+  const posts = allPosts()
+  const hasKey = providersWithKeys().length > 0
 
-  const allProjects = await db.select().from(projects).orderBy(desc(projects.updatedAt))
+  const todo = posts.filter((p) => p.post.status === 'todo')
+  const posted = posts.filter((p) => p.post.status === 'posted')
 
-  const needsYou = await db
-    .select()
-    .from(scheduledPosts)
-    .where(eq(scheduledPosts.status, 'manual_pending'))
-    .orderBy(desc(scheduledPosts.scheduledFor))
-    .limit(10)
-
-  const upcoming = await db
-    .select()
-    .from(scheduledPosts)
-    .where(
-      and(eq(scheduledPosts.status, 'scheduled'), gt(scheduledPosts.scheduledFor, new Date())),
+  if (!projects.length) {
+    return (
+      <>
+        <PageHeader
+          title="Projects"
+          subtitle="Nothing here yet."
+          action={hasKey ? <LinkButton href="/projects/new">New project</LinkButton> : undefined}
+        />
+        <Card>
+          <h2 className="mb-3 font-medium">Two ways to add a plan</h2>
+          <div className="space-y-4 text-sm text-muted">
+            <div>
+              <div className="mb-1 font-medium text-white">Use the Claude skill (no API key)</div>
+              <p className="prose-copy">
+                Copy <code className="font-mono text-xs">.claude/skills/launch-plan</code> into{' '}
+                <code className="font-mono text-xs">~/.claude/skills/</code>, then tell Claude
+                about your project. It writes the plan and imports it here for you.
+              </p>
+            </div>
+            <div>
+              <div className="mb-1 font-medium text-white">Use your own API key</div>
+              <p className="prose-copy">
+                Set <code className="font-mono text-xs">ANTHROPIC_API_KEY</code> (or{' '}
+                <code className="font-mono text-xs">GEMINI_API_KEY</code>) in your environment and
+                the <strong>New project</strong> button appears.
+              </p>
+            </div>
+            <div>
+              <div className="mb-1 font-medium text-white">Or import a file directly</div>
+              <p className="prose-copy font-mono text-xs">npm run import -- plan.json</p>
+            </div>
+          </div>
+        </Card>
+      </>
     )
-    .orderBy(scheduledPosts.scheduledFor)
-    .limit(8)
-
-  const recent = await db
-    .select()
-    .from(scheduledPosts)
-    .where(inArray(scheduledPosts.status, ['posted', 'manual_done', 'failed']))
-    .orderBy(desc(scheduledPosts.postedAt))
-    .limit(8)
-
-  const ids = [...needsYou, ...upcoming, ...recent].map((s) => s.channelId)
-  const chans = ids.length
-    ? await db.select().from(channels).where(inArray(channels.id, ids))
-    : []
-  const channelName = new Map(chans.map((c) => [c.id, c.name]))
+  }
 
   return (
     <>
       <PageHeader
-        title="Dashboard"
-        subtitle="Ship something, then actually tell people about it."
-        action={<LinkButton href="/projects/new">New project</LinkButton>}
+        title="Projects"
+        subtitle={`${todo.length} post${todo.length === 1 ? '' : 's'} still to publish · ${posted.length} done`}
+        action={hasKey ? <LinkButton href="/projects/new">New project</LinkButton> : undefined}
       />
 
-      {dryRun && (
-        <div className="mb-6 rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-warn">
-          <strong>Dry run is on.</strong> Posts are simulated and logged; nothing reaches a
-          real account. Turn it off in Settings when you&rsquo;re ready to post for real.
-        </div>
-      )}
-
-      {needsYou.length > 0 && (
-        <section className="mb-10">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Needs you — {needsYou.length} post{needsYou.length === 1 ? '' : 's'} to submit by hand
-          </h2>
-          <div className="space-y-2">
-            {needsYou.map((s) => (
-              <Card key={s.id} className="flex items-center justify-between gap-4 py-3">
-                <div>
-                  <div className="text-sm font-medium">{channelName.get(s.channelId)}</div>
-                  <div className="text-xs text-muted">
-                    Due {s.scheduledFor.toLocaleString()}
-                  </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {projects.map((p) => {
+          const mine = posts.filter((x) => x.project?.id === p.id)
+          const done = mine.filter((x) => x.post.status === 'posted').length
+          const active = mine.filter((x) => x.post.status !== 'skipped').length
+          return (
+            <Link key={p.id} href={`/projects/${p.slug}`}>
+              <Card className="h-full transition hover:border-accent/50">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="font-medium">{p.name}</span>
+                  <Badge tone={p.status === 'launched' ? 'good' : 'neutral'}>{p.status}</Badge>
                 </div>
-                <Link
-                  href={`/queue#${s.id}`}
-                  className="text-sm text-accent hover:underline"
-                >
-                  Open →
-                </Link>
+                <p className="text-sm text-muted">{p.tagline ?? 'No tagline yet.'}</p>
+                {active > 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-edge">
+                      <div
+                        className="h-full rounded-full bg-good transition-all"
+                        style={{ width: `${Math.round((done / active) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="font-mono text-xs tabular-nums text-muted">
+                      {done}/{active}
+                    </span>
+                  </div>
+                )}
               </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="mb-10">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Projects
-        </h2>
-        {allProjects.length === 0 ? (
-          <Empty>
-            No projects yet. Add one, then create an update to generate your first launch plan.
-          </Empty>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {allProjects.map((p) => (
-              <Link key={p.id} href={`/projects/${p.slug}`}>
-                <Card className="h-full transition hover:border-accent/50">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="font-medium">{p.name}</span>
-                    <Badge tone={p.status === 'launched' ? 'good' : 'neutral'}>
-                      {p.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted">{p.tagline ?? 'No tagline yet.'}</p>
-                  {p.tags.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {p.tags.map((t) => (
-                        <Badge key={t}>{t}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Upcoming
-          </h2>
-          {upcoming.length === 0 ? (
-            <Empty>Nothing scheduled.</Empty>
-          ) : (
-            <Card className="divide-y divide-edge p-0">
-              {upcoming.map((s) => (
-                <div key={s.id} className="flex items-center justify-between px-5 py-3">
-                  <span className="text-sm">{channelName.get(s.channelId)}</span>
-                  <span className="text-xs text-muted">
-                    {s.scheduledFor.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </Card>
-          )}
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Recent
-          </h2>
-          {recent.length === 0 ? (
-            <Empty>Nothing posted yet.</Empty>
-          ) : (
-            <Card className="divide-y divide-edge p-0">
-              {recent.map((s) => {
-                const badge = statusBadge(s.status)
-                return (
-                  <div key={s.id} className="flex items-center justify-between px-5 py-3">
-                    <span className="text-sm">{channelName.get(s.channelId)}</span>
-                    <div className="flex items-center gap-2">
-                      {s.externalUrl && s.status === 'posted' && (
-                        <a
-                          href={s.externalUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-accent hover:underline"
-                        >
-                          view
-                        </a>
-                      )}
-                      <Badge tone={badge.tone}>{badge.label}</Badge>
-                    </div>
-                  </div>
-                )
-              })}
-            </Card>
-          )}
-        </section>
+            </Link>
+          )
+        })}
       </div>
     </>
   )
