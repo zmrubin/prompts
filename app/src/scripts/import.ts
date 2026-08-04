@@ -35,6 +35,9 @@ try {
     console.log(`  Skipped unknown channels: ${r.skippedChannels.join(', ')}`)
   }
   for (const c of r.corrections) console.log(`  Corrected ${c}`)
+  if (r.superseded.length) {
+    console.log(`  Superseded older un-posted copy for: ${r.superseded.join(', ')}`)
+  }
   console.log('')
   console.log(`  Open: ${r.url}`)
   console.log('')

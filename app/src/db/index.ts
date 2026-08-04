@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import * as schema from './schema'
+import { appRoot } from '@/lib/config'
 
 /**
  * Anchored to the app root rather than the working directory: the MCP server
@@ -11,10 +12,9 @@ import * as schema from './schema'
  *
  * Override with PRAGENT_DB to keep it outside the repo.
  */
-const APP_ROOT = resolve(import.meta.dirname, '../..')
 const DB_PATH = process.env.PRAGENT_DB
   ? resolve(process.env.PRAGENT_DB)
-  : resolve(APP_ROOT, 'data/pragent.db')
+  : resolve(appRoot(), 'data/pragent.db')
 
 declare global {
   // eslint-disable-next-line no-var

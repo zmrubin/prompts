@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { db } from '@/db'
 import { channels, plans, posts, projects, updates } from '@/db/schema'
 import { PlanFileSchema, type PlanFile } from './plan-file'
@@ -12,6 +12,8 @@ export type ImportResult = {
   skippedChannels: string[]
   /** Link placements the venue's own policy required us to change. */
   corrections: string[]
+  /** Venues whose older, un-posted copy this plan replaced. */
+  superseded: string[]
   url: string
 }
 
@@ -127,6 +129,16 @@ export function importPlan(input: unknown, base = baseUrl()): ImportResult {
       .run()
   }
 
+  /**
+   * A newer plan replaces what an older one had not got round to. Copy
+   * written for a version you have since shipped past is worse than nothing,
+   * and leaving it outstanding means the checklist accumulates duplicates
+   * that look identical to the fresh ones.
+   *
+   * Only `todo` posts are touched — anything already posted is history.
+   */
+  const superseded = supersedeOlder(projectId, planId, usable.map((p) => p.channelId))
+
   return {
     projectSlug: file.project.slug,
     projectCreated,
@@ -134,6 +146,49 @@ export function importPlan(input: unknown, base = baseUrl()): ImportResult {
     postsCreated: usable.length,
     skippedChannels: [...new Set(skipped)],
     corrections,
+    superseded,
     url: `${base}/plans/${planId}`,
   }
+}
+
+function supersedeOlder(projectId: string, newPlanId: string, channelIds: string[]): string[] {
+  if (!channelIds.length) return []
+
+  const olderPlanIds = db
+    .select({ id: plans.id })
+    .from(plans)
+    .innerJoin(updates, eq(updates.id, plans.updateId))
+    .where(and(eq(updates.projectId, projectId), ne(plans.id, newPlanId)))
+    .all()
+    .map((p) => p.id)
+  if (!olderPlanIds.length) return []
+
+  const stale = db
+    .select()
+    .from(posts)
+    .where(
+      and(
+        inArray(posts.planId, olderPlanIds),
+        inArray(posts.channelId, channelIds),
+        eq(posts.status, 'todo'),
+      ),
+    )
+    .all()
+  if (!stale.length) return []
+
+  const names = new Map(
+    db.select({ id: channels.id, name: channels.name }).from(channels).all()
+      .map((c) => [c.id, c.name]),
+  )
+
+  db.update(posts)
+    .set({
+      status: 'skipped',
+      notes: 'Superseded by a newer plan for this project.',
+      updatedAt: new Date(),
+    })
+    .where(inArray(posts.id, stale.map((p) => p.id)))
+    .run()
+
+  return [...new Set(stale.map((p) => names.get(p.channelId) ?? p.channelId))]
 }
