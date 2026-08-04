@@ -53,17 +53,23 @@ export function decryptJson<T>(blob: string): T {
 
 // ---------------------------------------------------------------------------
 // Password hashing for the single admin user.
-// Format: scrypt$<saltB64>$<hashB64>
+// Format: scrypt:<saltB64>:<hashB64>
+//
+// The separator is ":" and not "$" deliberately. Next.js runs .env values
+// through dotenv-expand, which treats "$" as the start of a variable
+// reference — a "$"-separated hash silently loses everything after the first
+// "$" when loaded from .env, and login then rejects the correct password with
+// no error anywhere. ":" is not in the base64 alphabet and is not expanded.
 // ---------------------------------------------------------------------------
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16)
   const derived = scryptSync(password, salt, 64)
-  return `scrypt$${salt.toString('base64')}$${derived.toString('base64')}`
+  return `scrypt:${salt.toString('base64')}:${derived.toString('base64')}`
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  const [scheme, saltB64, hashB64] = stored.split('$')
+  const [scheme, saltB64, hashB64] = stored.split(':')
   if (scheme !== 'scrypt' || !saltB64 || !hashB64) return false
   const expected = Buffer.from(hashB64, 'base64')
   const actual = scryptSync(password, Buffer.from(saltB64, 'base64'), expected.length)
