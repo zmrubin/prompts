@@ -17,7 +17,9 @@ const salt = randomBytes(16)
 const hash = scryptSync(password, salt, 64)
 
 console.log('\nAdd these to Railway environment variables:\n')
-console.log(`ADMIN_PASSWORD_HASH=scrypt$${salt.toString('base64')}$${hash.toString('base64')}`)
+console.log(
+  `ADMIN_PASSWORD_HASH=scrypt:${salt.toString('base64')}:${hash.toString('base64')}`,
+)
 console.log(`SESSION_SECRET=${randomBytes(32).toString('base64')}`)
 console.log(`ENCRYPTION_KEY=${randomBytes(32).toString('base64')}`)
 console.log(
