@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { runMigrations } from '@/db/migrate'
@@ -103,11 +103,31 @@ function registerWithClaudeDesktop(): boolean {
   return true
 }
 
+/**
+ * The MCP server carries the data and the actions; the skill carries the
+ * writing judgement. Installed to ~/.claude/skills so it applies in every
+ * session, not only when your working directory happens to be this repo.
+ */
+function installSkill(): boolean {
+  const from = resolve(ROOT, '..', '.claude', 'skills', 'launch-plan')
+  if (!existsSync(from)) {
+    warn(`Skill not found at ${from} — the MCP tools will work, but without the writing guidance.`)
+    return false
+  }
+  const to = join(homedir(), '.claude', 'skills', 'launch-plan')
+  mkdirSync(dirname(to), { recursive: true })
+  cpSync(from, to, { recursive: true })
+  ok(`Skill installed (${to})`)
+  return true
+}
+
 console.log('\n  Setting up PR Agent\n')
 
 runMigrations()
 const n = seed()
 ok(`Database ready — ${n} venues at ${DB_PATH}`)
+
+installSkill()
 
 let registered = false
 if (haveClaudeCli()) {
