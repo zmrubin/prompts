@@ -4,8 +4,17 @@ import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import * as schema from './schema'
 
-/** Override with PRAGENT_DB to keep the database outside the repo. */
-const DB_PATH = resolve(process.env.PRAGENT_DB ?? 'data/pragent.db')
+/**
+ * Anchored to the app root rather than the working directory: the MCP server
+ * is launched by Claude Code from wherever it happens to be, and a relative
+ * default would silently create a fresh empty database per directory.
+ *
+ * Override with PRAGENT_DB to keep it outside the repo.
+ */
+const APP_ROOT = resolve(import.meta.dirname, '../..')
+const DB_PATH = process.env.PRAGENT_DB
+  ? resolve(process.env.PRAGENT_DB)
+  : resolve(APP_ROOT, 'data/pragent.db')
 
 declare global {
   // eslint-disable-next-line no-var
