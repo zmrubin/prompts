@@ -1,35 +1,30 @@
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { homedir, platform } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { runMigrations } from '@/db/migrate'
 import { seed } from '@/db/seed'
 import { DB_PATH } from '@/db'
 import { baseUrl } from '@/lib/config'
 
 /**
- * One-time setup. After this you never run anything again — Claude Code
- * launches the MCP server itself whenever you open it.
+ * Prepares a local checkout and prints how to register the server.
  *
  *   npm run setup
  *
- * Safe to re-run: registration is removed and re-added rather than
- * duplicated, and the database is migrated in place.
+ * This used to copy a skill into ~/.claude and register a stdio server there.
+ * Both die with the machine — and in Claude Code on the web, with the
+ * container — which is exactly why the tool kept disappearing from other
+ * sessions. Registration is now a hosted URL you add once, so this script
+ * tells you what to run rather than writing to your home directory.
  */
 const ROOT = resolve(import.meta.dirname, '../..')
 const ENTRY = resolve(ROOT, 'src/mcp/server.ts')
-const TSX = resolve(ROOT, 'node_modules/.bin/tsx')
 /**
  * tsx resolves tsconfig `paths` relative to the working directory, and Claude
  * Code launches this from wherever the user happens to be — so the `@/` alias
  * has to be pinned to an absolute tsconfig or none of the imports resolve.
  */
 const TSCONFIG = resolve(ROOT, 'tsconfig.json')
-const ARGS = ['--tsconfig', TSCONFIG, ENTRY]
-const NAME = 'pr-agent'
-
-const ok = (m: string) => console.log(`  ✓ ${m}`)
-const warn = (m: string) => console.log(`  ! ${m}`)
+const TSX = resolve(ROOT, 'node_modules/.bin/tsx')
 
 function haveClaudeCli(): boolean {
   try {
@@ -40,125 +35,39 @@ function haveClaudeCli(): boolean {
   }
 }
 
-function registerWithClaudeCode(): boolean {
-  // Remove first so re-running updates the path instead of erroring on a
-  // duplicate name.
-  try {
-    execFileSync('claude', ['mcp', 'remove', '--scope', 'user', NAME], { stdio: 'ignore' })
-  } catch {
-    // Not registered yet, which is the normal first-run case.
-  }
-
-  try {
-    execFileSync(
-      'claude',
-      ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', NAME, '--', TSX, ...ARGS],
-      { stdio: 'inherit' },
-    )
-  } catch {
-    return false
-  }
-
-  // Trust the listing, not the exit code.
-  try {
-    const list = execFileSync('claude', ['mcp', 'list'], { encoding: 'utf8' })
-    if (!list.includes(NAME)) {
-      warn('`claude mcp add` reported success but the server is not in `claude mcp list`.')
-      return false
-    }
-  } catch {
-    warn('Could not verify with `claude mcp list` — check it yourself.')
-  }
-  return true
-}
-
-/** Claude Desktop reads a JSON config rather than using the CLI. */
-function desktopConfigPath(): string | null {
-  const os = platform()
-  if (os === 'darwin') {
-    return join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
-  }
-  if (os === 'linux') return join(homedir(), '.config', 'Claude', 'claude_desktop_config.json')
-  if (os === 'win32' && process.env.APPDATA) {
-    return join(process.env.APPDATA, 'Claude', 'claude_desktop_config.json')
-  }
-  return null
-}
-
-function registerWithClaudeDesktop(): boolean {
-  const path = desktopConfigPath()
-  if (!path) return false
-
-  let config: { mcpServers?: Record<string, unknown> } = {}
-  if (existsSync(path)) {
-    try {
-      config = JSON.parse(readFileSync(path, 'utf8'))
-    } catch {
-      warn(`${path} exists but is not valid JSON — leaving it alone.`)
-      return false
-    }
-  } else if (!existsSync(dirname(path))) {
-    // Claude Desktop isn't installed; don't invent its config directory.
-    return false
-  }
-
-  config.mcpServers = { ...config.mcpServers, [NAME]: { command: TSX, args: ARGS } }
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify(config, null, 2) + '\n')
-  ok(`Registered with Claude Desktop (${path})`)
-  console.log('    Restart Claude Desktop for it to pick this up.')
-  return true
-}
-
-/**
- * The MCP server carries the data and the actions; the skill carries the
- * writing judgement. Installed to ~/.claude/skills so it applies in every
- * session, not only when your working directory happens to be this repo.
- */
-function installSkill(): boolean {
-  const from = resolve(ROOT, '..', '.claude', 'skills', 'launch-plan')
-  if (!existsSync(from)) {
-    warn(`Skill not found at ${from} — the MCP tools will work, but without the writing guidance.`)
-    return false
-  }
-  const to = join(homedir(), '.claude', 'skills', 'launch-plan')
-  mkdirSync(dirname(to), { recursive: true })
-  cpSync(from, to, { recursive: true })
-  ok(`Skill installed (${to})`)
-  return true
-}
-
-console.log('\n  Setting up PR Agent\n')
+console.log('\n  PR Agent — setup\n')
 
 runMigrations()
 const n = seed()
-ok(`Database ready — ${n} venues at ${DB_PATH}`)
+console.log(`  ✓ Database ready — ${n} venues at ${DB_PATH}`)
 
-installSkill()
+const url = process.env.APP_URL ? `${process.env.APP_URL}/api/mcp` : 'https://<your-app>/api/mcp'
+const token = '<MCP_TOKEN>'
 
-let registered = false
-if (haveClaudeCli()) {
-  registered = registerWithClaudeCode()
-  if (registered) ok('Registered with Claude Code (user scope — available in every session)')
-} else {
-  warn('The `claude` CLI is not on your PATH, so Claude Code was skipped.')
+console.log('\n  ── To reach this from every Claude session ──────────────────\n')
+console.log('  Deploy it, then register the URL once. See app/DEPLOY.md.')
+console.log('  A hosted server is the only setup that survives a new machine,')
+console.log('  a different repo, or a Claude Code web container.\n')
+
+console.log('  claude.ai — Settings → Connectors → Add custom connector')
+console.log(`    URL:     ${url}`)
+console.log(`    Header:  Authorization: Bearer ${token}`)
+console.log('    Covers Claude web, Desktop, mobile and Claude Code web.\n')
+
+console.log('  Claude Code CLI — every project on this machine:')
+console.log('    claude mcp add --transport http --scope user pr-agent \\')
+console.log(`      ${url} \\`)
+console.log(`      --header "Authorization: Bearer ${token}"\n`)
+
+console.log('  ── Local development only ──────────────────────────────────\n')
+console.log('  To point Claude Code at this checkout instead of the deploy:')
+console.log(
+  `    claude mcp add --scope user --transport stdio pr-agent-local -- ${TSX} --tsconfig ${TSCONFIG} ${ENTRY}\n`,
+)
+
+if (!haveClaudeCli()) {
+  console.log('  ! The `claude` CLI is not on your PATH — use the claude.ai route above.\n')
 }
 
-const desktop = registerWithClaudeDesktop()
-
-if (!registered && !desktop) {
-  console.log('\n  Nothing was registered automatically. Do one of these:\n')
-  console.log('  Claude Code:')
-  console.log(`    claude mcp add --scope user --transport stdio ${NAME} -- ${TSX} ${ARGS.join(' ')}\n`)
-  console.log('  Claude Desktop — add to claude_desktop_config.json:')
-  console.log(
-    JSON.stringify({ mcpServers: { [NAME]: { command: TSX, args: ARGS } } }, null, 2) + '\n',
-  )
-  process.exit(1)
-}
-
-console.log('\n  Done. Open Claude and try:\n')
-console.log('    "what should I post today?"')
-console.log('    "I just shipped <project> — help me launch it"\n')
-console.log(`  Dashboard: ${baseUrl()} (Claude starts it on demand)`)
-console.log('  Keep it always running: npm run install-service\n')
+console.log(`  Dashboard: ${baseUrl()}`)
+console.log('  Start it with: npm run dev\n')

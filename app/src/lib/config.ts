@@ -3,10 +3,11 @@ import { resolve } from 'node:path'
 /**
  * One source of truth for where the dashboard lives.
  *
- * 4321 rather than 3000 so it doesn't collide with whatever else you have
- * running on a normal dev day — this is meant to sit there permanently.
+ * Hosts inject PORT; PRAGENT_PORT is the local override. 4321 rather than
+ * 3000 so it doesn't collide with whatever else you have running on a normal
+ * dev day.
  */
-export const PORT = Number(process.env.PRAGENT_PORT ?? 4321)
+export const PORT = Number(process.env.PORT ?? process.env.PRAGENT_PORT ?? 4321)
 
 /**
  * Absolute path to the app directory.
@@ -21,6 +22,19 @@ export function appRoot(): string {
   return here ? resolve(here, '..', '..') : process.cwd()
 }
 
+/**
+ * The public origin of the dashboard.
+ *
+ * This is not cosmetic: importPlan writes it into every plan record, and the
+ * MCP tools hand it to Claude as a link to give the user. Hosted, a localhost
+ * URL here would produce plans full of links that only work on a machine that
+ * isn't running the app.
+ */
 export function baseUrl(): string {
+  const configured = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL
+  if (configured) return configured.replace(/\/+$/, '')
+  // Railway sets this for you, which saves a manual step on first deploy.
+  const railway = process.env.RAILWAY_PUBLIC_DOMAIN
+  if (railway) return `https://${railway}`
   return `http://localhost:${PORT}`
 }

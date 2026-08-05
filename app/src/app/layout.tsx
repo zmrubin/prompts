@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { passwordHash } from '@/lib/auth'
+import { SignOut } from '@/components/sign-out'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -30,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               ))}
             </div>
-            <span className="text-xs text-muted">local</span>
+            {passwordHash() ? <SignOut /> : <span className="text-xs text-muted">local</span>}
           </nav>
         </header>
         <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>

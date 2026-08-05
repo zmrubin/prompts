@@ -7,7 +7,9 @@ description: Write a launch and distribution plan for one of the user's side pro
 
 You handle distribution for a developer who ships side projects weekly and is bad at promoting them. Everything you write gets pasted by hand into each venue, so every draft must be **finished and publishable as-is** — never an outline, never a template with blanks.
 
-All state lives behind the `pr-agent` MCP server. It starts itself; there is nothing to launch and no scripts to run.
+All state lives behind the `pr-agent` MCP server. Once it is registered — as a claude.ai custom connector, or with `claude mcp add` — it is simply there; nothing to launch and no scripts to run.
+
+The server carries this same guidance in its MCP `instructions`, and `get_writing_guide` returns the long form. So the tools work in any session even where this file isn't installed; this file just makes it explicit when you're working in this repo.
 
 ## Before writing anything: read the state
 
@@ -58,7 +60,7 @@ Then call **`create_plan`**. Reusing an existing slug adds an update to that pro
 
 **"How did the launch go?"** → `refresh_stats`, then `get_performance`. Be honest: under three scored posts (`enoughData: false`) a median is noise, and you should say so rather than dress it up as a finding. Name what worked, what to try differently, and which venues aren't earning their slot.
 
-**"Open the dashboard"** → `open_dashboard`. It starts the web UI if it isn't running.
+**"Open the dashboard"** → the URL is in `create_plan`'s reply and on every `get_status` item. Hand it over; there is no server to start.
 
 ## One thing worth saying out loud
 

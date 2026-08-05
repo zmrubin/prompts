@@ -158,7 +158,7 @@ describe('pr-agent MCP server', () => {
       'update_post_copy',
       'get_post_copy',
       'refresh_stats',
-      'open_dashboard',
+      'get_writing_guide',
     ]) {
       assert.ok(names.includes(expected), `missing tool: ${expected}`)
     }
